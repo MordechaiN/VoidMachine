@@ -15,7 +15,9 @@ import com.voidmachine.config.PluginConfig;
 import com.voidmachine.machine.MachineBlock;
 import com.voidmachine.machine.MachineDataStore;
 import com.voidmachine.machine.MachineRegistry;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -148,6 +150,24 @@ public final class VoidMachineCommand implements TabExecutor {
 
     // ─── /vm admin remove <name> ──────────────────────────────────────────────
 
+    /**
+     * Remove a registered machine.
+     *
+     * <p>Order of operations:
+     * <ol>
+     *   <li>Guard: machine must not be locked (active ritual in progress).</li>
+     *   <li>Attempt to clear the physical block in the world (set to AIR).
+     *       Runs synchronously on the main thread — safe for a command context.
+     *       Only clears if the block is still the configured core material;
+     *       if it was already changed externally the block is left as-is.</li>
+     *   <li>Deregister from in-memory registry.</li>
+     *   <li>Persist registry to disk.</li>
+     * </ol>
+     * The machine is deregistered and persisted regardless of whether the
+     * physical block was cleared (the machine becomes inactive immediately).
+     * If the world is unloaded or the chunk cannot be accessed, the admin is
+     * warned so they can manually clean up the block.
+     */
     private boolean adminRemove(@NotNull CommandSender sender, @NotNull String[] args) {
         if (args.length < 3) {
             sender.sendMessage("§cUsage: /vm admin remove <name>");
@@ -161,15 +181,45 @@ public final class VoidMachineCommand implements TabExecutor {
         }
         if (machine.isLocked()) {
             sender.sendMessage("§c[VoidMachine] Cannot remove '§e" + name
-                    + "§c' — a ritual is in progress.");
+                    + "§c' — a ritual is in progress. Wait for it to finish.");
             return true;
         }
 
+        // ── Clear the physical block ──────────────────────────────────────────
+        // Synchronous on main thread. Loads the chunk if needed (brief, acceptable
+        // for a rare admin command). Only removes if block is still the core material —
+        // prevents destroying a block that was manually changed after registration.
+        boolean blockCleared = false;
+        World world = Bukkit.getWorld(machine.worldName());
+        if (world != null) {
+            int chunkX = machine.x() >> 4;
+            int chunkZ = machine.z() >> 4;
+            if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                world.loadChunk(chunkX, chunkZ);
+            }
+            Block block = world.getBlockAt(machine.x(), machine.y(), machine.z());
+            if (block.getType() == config.machineCoreBlock()) {
+                block.setType(Material.AIR);
+                blockCleared = true;
+            }
+        }
+
+        // ── Deregister and persist ────────────────────────────────────────────
         machineRegistry.deregister(machine);
         machineDataStore.save(machineRegistry.all());
 
-        sender.sendMessage("§a[VoidMachine] Machine '§e" + name + "§a' removed.");
-        plugin.getLogger().info("[Admin] " + sender.getName() + " removed machine '" + name + "'.");
+        String loc = machine.locationKey();
+        if (blockCleared) {
+            sender.sendMessage("§a[VoidMachine] Machine '§e" + name
+                    + "§a' removed and block cleared at §7" + loc + "§a.");
+        } else {
+            sender.sendMessage("§a[VoidMachine] Machine '§e" + name
+                    + "§a' removed from registry. §7(Block at " + loc
+                    + " was not cleared — world unloaded or block already changed.)");
+        }
+        plugin.getLogger().info("[Admin] " + sender.getName() + " removed machine '"
+                + name + "' at " + loc
+                + (blockCleared ? " (block cleared)" : " (block not cleared)") + ".");
         return true;
     }
 
