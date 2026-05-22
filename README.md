@@ -34,9 +34,11 @@
 
 A **physical ritual machine** placed in your Minecraft world. Players walk up to it, place an item, and press a button.
 
-Six void symbols spin. They slow down. Stop column by column. The last column teases a near-miss — then the Void reveals its verdict.
+The machine locks. A dark ritual chamber fills the screen. The boss bar crawls forward, then freezes at the edge of revelation. Three seconds of silence — then the Void reveals its verdict with a flash of coloured light.
 
 Win or lose, nobody forgets their first time.
+
+Even when idle, the machine breathes — portal smoke drifts from the block, soul-fire flickers in the dark, and an occasional amethyst chime carries through the room. Something dangerous is sleeping here.
 
 ---
 
@@ -48,19 +50,21 @@ They place their offering — anything. 64 diamonds. A stack of netherite ingots
 
 **They press ⚡ FEED THE VOID.**
 
-The ritual begins. Six reel columns start spinning through void-themed symbols — fast at first, then slower, then agonising. Columns lock in one at a time from left to right. The last column shows a near-miss symbol for a full second before the truth drops.
+The machine locks. A ritual chamber opens — a dark three-slot screen, nothing to distract. The boss bar begins to fill. Then it freezes. The screen goes silent. Three seconds of dread. Then the chamber flashes its verdict colour and the result drops — bold, unambiguous, impossible to miss on any platform.
+
+Nearby players? They heard the drone through the wall. They're already watching.
 
 | Outcome | What happens |
 |---------|-------------|
-| **Consumed** | The Void takes everything. Silence. |
-| **Returned** | The machine was unmoved. Items come back. |
-| **Doubled** | The Void rewards the bold. ×2. |
-| **Tripled** | A surge of impossible power. ×3. Server announcement fires. |
-| **★ JACKPOT ×5** | The Void awakens. ×5 — broadcast to every online player. |
+| **Consumed** | The Void takes everything. Silence. Chamber turns red. |
+| **Returned** | The machine was unmoved. Items come back. Chamber turns grey. |
+| **Doubled** | The Void rewards the bold. ×2. Chamber turns green. |
+| **Tripled** | A surge of impossible power. ×3. Chamber turns gold. Server-wide announcement. |
+| **★ JACKPOT ×5** | The Void awakens. ×5. Triple lightning. Sound heard 64 blocks away. Full-server broadcast. |
 
-> 📸 *Screenshot: staging interface with sacrifice placed, FEED THE VOID button active.*
+> 📸 *Screenshot: staging interface — one open slot, glowing START button active.*
 
-> 📸 *Screenshot: cinematic reel GUI mid-spin — symbols cycling, boss bar at tension phase.*
+> 📸 *Screenshot: ritual chamber at reveal — gold border, TRIPLED verdict, boss bar held.*
 
 ---
 
@@ -84,17 +88,18 @@ Full ritual experience — boss bar, inventory GUI, particles — on Java and Be
 
 ## ✨ Features
 
-- 🎰 **Cinematic reel GUI** — 6 spinning columns, 7 void symbols, progressive slowdown, staggered column stops with per-outcome near-miss design
+- ⬛ **Ritual chamber GUI** — dark 3-slot screen, minimal panes, bold colour-coded verdict. Works on Java, Bedrock, controller, touch, and mobile without any platform-specific input
+- 🌑 **Idle ambient effects** — portal smoke, soul-fire flicker, and amethyst chime pulse from all idle machines every 30 s. The machine feels alive even when no ritual is running
+- 👁️ **Social visibility** — nearby players hear the ritual build, hear the tension hum, and feel the jackpot triple-lightning from 64 blocks away
 - 🪨 **Physical world machine** — a real block your players visit. Right-click to open.
 - 🔒 **Crash-safe WAL checkpoint** — item written to disk before it leaves the player. Server crash mid-ritual? Items are safe. Always.
-- 🎯 **Pre-rolled outcomes** — the result is locked the moment the ritual starts. No reconnect exploit, no timing manipulation.
-- 📢 **Server-wide jackpot broadcasts** — full-screen title + chat message when someone wins ×5
+- 🎯 **Pre-rolled outcomes** — the result is locked the moment the ritual starts, before the first animation frame. No reconnect exploit, no timing manipulation.
+- 📢 **Server-wide jackpot broadcasts** — triple lightning, world-space sound at 64 blocks, full-screen title + chat when someone wins ×5
 - ⚙️ **Named outcome profiles** — different risk curves per machine (`default`, `brutal`, `unstable`)
 - ⏱️ **Cooldowns + daily limits** — per-player and global
 - 🛡️ **Explosion, piston, and liquid protection** — machine blocks are indestructible through gameplay
 - 💀 **Death-safe** — dying during staging injects the item into death drops. No silent loss.
-- 🌐 **Geyser / Bedrock compatible** — no Java-specific input required
-- 🎮 **Controller and touch friendly** — tap-to-place. No shift-click habits needed.
+- 🎮 **Bedrock / controller / touch first** — designed for lowest-precision input. No shift-click, no keyboard shortcuts, no Java-specific habits required.
 
 ---
 
@@ -112,7 +117,7 @@ Full ritual experience — boss bar, inventory GUI, particles — on Java and Be
 
 That's it. Config and messages generate automatically on first start.
 
-> Default machine block: `CRYING_OBSIDIAN` — configurable in `config.yml`.
+> Default machine block: `RESPAWN_ANCHOR` — configurable via `machine.core-material` in `config.yml`.
 
 ---
 
@@ -169,7 +174,7 @@ Weights are normalized automatically. Use any positive numbers.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `machine.core-block` | `CRYING_OBSIDIAN` | Block type for machine registration |
+| `machine.core-material` | `RESPAWN_ANCHOR` | Block type for machine registration |
 | `limits.max-insert-amount` | `64` | Maximum items per ritual |
 | `limits.max-return-amount` | `2304` | Return cap (overflow protection) |
 | `limits.clamp-on-overflow` | `true` | Clamp oversized returns rather than cancelling |
@@ -243,7 +248,7 @@ Built for production survival servers. Java 21, PaperMC 1.21.4+, Adventure API.
 
 **Write-ahead log (WAL)** — item checkpoint written and `fsync`'d to disk before capture. Startup recovery scans and restores all incomplete checkpoints after a crash.
 
-**Pre-rolled outcomes** — the result is determined at animation start, before the first reel frame renders. The reel is presentation only. No outcome manipulation is possible through reconnect or crash.
+**Pre-rolled outcomes** — the result is determined at animation start, stored in `AnimationContext`, and never re-rolled. The ritual GUI is presentation only. No outcome manipulation is possible through disconnect, reconnect, or crash.
 
 **Transaction state machine** — `CAPTURED → ANIMATING → DELIVERING → COMPLETED / FAILED`. Each state crash-recoverable.
 
@@ -256,7 +261,7 @@ Built for production survival servers. Java 21, PaperMC 1.21.4+, Adventure API.
 ```
 com.voidmachine
 ├── animation/          StagingGui, CinematicGui, AnimationPipeline, AnimationWatchdog
-│                       ReelSymbol, StagingGuiListener, CinematicGuiListener
+│                       AmbientEffectScheduler, StagingGuiListener, CinematicGuiListener
 ├── audit/              AuditLogger
 ├── checkpoint/         CheckpointStore, PendingDeliveryQueue, StartupRecovery
 ├── command/            VoidMachineCommand
@@ -297,8 +302,11 @@ Write-ahead log. Startup recovery. Checkpoint `fsync`. Machine lock. Death handl
 **Phase 6 — Playtest hardening**
 Animation timing reduced to ~5 s. Player death handling. Machine destruction blocked on all event paths. Watchdog abort timeout.
 
-**Phase 7 — Reel animation + UX overhaul**
-Outcome pre-rolled at animation start. `ReelSymbol` enum, 7 void symbols, cached `ItemStack`s. `CinematicGui` rewritten: 6 spinning columns, speed phases, staggered stops, per-outcome near-miss design. Bedrock/controller-safe staging: natural inventory pre-commit, clamping at START press.
+**Phase 7 — Commit-step UX + pre-rolled outcomes**
+Outcome pre-rolled and stored in `AnimationContext` before the first animation frame. Staging GUI: natural inventory pre-commit, clamping at START press, cursor resolution on confirm. `StagingGuiListener` simplified — pane protection only, no shift-click routing.
+
+**Phase 8 — Atmosphere + GUI redesign**
+`AmbientEffectScheduler`: idle portal smoke, soul-fire flicker, ambient hum, 30-second attract flash — all idle machines feel alive. Social visibility: world-space sounds during ramp, tension, and reveal so nearby spectators hear the ritual. Jackpot enhanced to triple lightning + 64-block world sound. `StagingGui` rebuilt as a clean 3-row layout (5-row removed) — single open input slot, glowing START button, column-aligned header → input → confirm. `CinematicGui` rewritten as a ritual chamber: all reel machinery removed, single bold status pane with colour-coded reveal. Designed for Bedrock, controller, touch, and mobile first.
 
 ---
 
