@@ -83,7 +83,7 @@ public final class StagingGuiListener implements Listener {
         }
 
         int rawSlot = event.getRawSlot();
-        int topSize = event.getInventory().getSize(); // 45 for a 5-row chest
+        int topSize = event.getInventory().getSize(); // 27 for a 3-row chest
 
         // ── START button ──────────────────────────────────────────────────────
         // Cancel the underlying click (prevents pane-swap ghost), then trigger.
@@ -124,7 +124,7 @@ public final class StagingGuiListener implements Listener {
             return;
         }
 
-        int topSize = event.getInventory().getSize(); // 45
+        int topSize = event.getInventory().getSize(); // 27
 
         // Cancel any drag that touches a top-inventory slot other than the input slot.
         // Drags entirely within the player's inventory (rawSlot >= topSize) are allowed.

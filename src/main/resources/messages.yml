@@ -107,13 +107,19 @@ help:
 staging:
   gui:
     title: "<dark_gray>⬛ <dark_purple>THE VOID MACHINE <dark_gray>⬛"
+
+  # Header item (slot 4 — top centre).
+  # Name is always visible; lore is hover-only (invisible on mobile/controller).
+  # Keep both short — mobile screens are small.
+  header-item:
+    empty-name: "<dark_purple>▼ Place item below"
+    empty-lore: []
+    ready-name: "<dark_purple>▼ Press START"
+    ready-lore: []
+
   start-button:
-    inactive-name: "<dark_red>No sacrifice yet"
-    inactive-lore:
-      - "<dark_gray>Place your offering in the glowing center slot."
-      - "<dark_gray>You may take it back at any time before confirming."
-      - ""
-      - "<dark_gray>The Void awaits."
+    inactive-name: "<dark_gray>No offering yet"
+    inactive-lore: []
     active-name: "<gradient:#7c2ad6:#3b0a6c><b>⚡ FEED THE VOID ⚡</b></gradient>"
     active-lore:
       - "<dark_gray>Your sacrifice is ready."

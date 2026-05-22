@@ -7,6 +7,57 @@ Format: [version] — date, then Added / Changed / Fixed / Security sections.
 
 ## [Unreleased]
 
+### Removed
+- **`ReelSymbol.java` deleted** — orphaned after CinematicGui reel-removal rewrite.
+  Zero remaining references confirmed.
+
+### Changed
+- **Active START button gains enchant-glow** (`setEnchantmentGlintOverride(true)`) —
+  NETHER_STAR pulses with purple sheen when sacrifice is placed. No actual enchantment
+  applied. Instantly signals "this button is live." Geyser-compatible (1.20.5+ API).
+- **RETURNED outcome text changed** from `GRAY` to `WHITE` — clear contrast against
+  the gray border panes in the reveal phase. All five outcomes now have unmistakable
+  distinct colours: DARK_RED / WHITE / GREEN / GOLD / LIGHT_PURPLE.
+- **Header item (slot 4) text shortened** for mobile/controller readability:
+  - Empty → name `"▼ Place item below"` (no lore)
+  - Ready → name `"▼ Press START"` (no lore)
+  Name is always visible; lore is hover-only and invisible on mobile / Bedrock without
+  hover. Instruction now lives entirely in the item name.
+- **Inactive START button lore removed** (was `"Place an item in the slot above."`) —
+  the header item name already gives this instruction; duplication removed.
+- **StagingGui completely redesigned** — Bedrock / mobile / controller / child UX priority:
+  - Layout reduced from 5-row 45-slot to **3-row 27-slot** chest. Simpler, faster to parse.
+  - Column-aligned layout: header (slot 4) → input (slot 13) → START button (slot 22).
+    Natural top-to-bottom read order; player understands immediately without instructions.
+  - Input slot left as **AIR** — the single empty slot against a dark pane background draws
+    the eye immediately on any platform.
+  - **Header item** (ENDER_EYE, slot 4): visible tooltip with explicit instructions.
+    Updates from "Place your offering…" → "Press the button below" when item is placed.
+  - Pane count reduced from 43 to 25. No inner accent layer — border panes only.
+  - START button: BARRIER (inactive) → NETHER_STAR (active). Clear visual state change.
+  - `staging.header-item` section added to `messages.yml` for localisation.
+  - Inactive lore simplified to one line: "Place an item in the slot above."
+- **CinematicGui completely redesigned** — reel slot-machine UI replaced by ritual chamber:
+  - All reel machinery removed: `ReelSession`, `Phase` enum, `scheduleColumnStops`,
+    `REEL_SLOTS`, `OUTCOME_REEL`, `NEAR_MISS`, `AtomicReference`/`AtomicInteger` tension
+    scheduler, and `onRampStep` logic. Net: ~200 lines removed.
+  - Single status pane at slot 13 (center of 3-row inventory).
+  - **Ramp phase**: ENDER_EYE — "⬛ The Void stirs…" — static, dark, atmospheric.
+    Boss bar and world sounds carry all ramp energy.
+  - **Tension phase**: ENDER_EYE dims to ". . ." — mirrors boss bar freeze.
+  - **Reveal phase**: border panes shift to outcome colour (red / grey / green / gold /
+    magenta); center slot becomes a **bold, unambiguous outcome item**:
+    - DESTROYED → BARRIER "✗ CONSUMED" (universally understood icon)
+    - RETURNED → ENDER_PEARL "↩ RETURNED"
+    - DOUBLED → EMERALD "✦ DOUBLED ×2"
+    - TRIPLED → NETHER_STAR "★ TRIPLED ×3"
+    - JACKPOT → NETHER_STAR (enchant glow) "★★ JACKPOT ×5 ★★"
+  - JACKPOT glow via `ItemMeta.setEnchantmentGlintOverride(true)` (1.20.5+ API) —
+    no actual enchantment, purely visual. Geyser-compatible.
+  - `onRampStep` preserved as no-op — `AnimationPipeline` call surface unchanged.
+  - `AnimationPipeline.java` requires zero changes; all signatures preserved.
+  - `ReelSymbol.java` now orphaned (no references). Scheduled for removal.
+
 ### Added
 - **Idle ambient effects** (`AmbientEffectScheduler`):
   - Portal smoke drift every 1 s from all idle machine blocks.

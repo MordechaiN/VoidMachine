@@ -35,38 +35,44 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 5-row staging GUI — explicit commit step before a VoidMachine ritual begins.
+ * 3-row staging GUI — explicit commit step before a VoidMachine ritual begins.
  *
- * <h3>Layout (45-slot, 5×9)</h3>
+ * <h3>Layout (27-slot, 3×9)</h3>
  * <pre>
- * [B][B][B][B][B][B][B][B][B]   row 0 — border
- * [B][A][A][A][A][A][A][A][B]   row 1 — accents
- * [B][A][A][A][I][A][A][A][B]   row 2 — I = input slot (22)
- * [B][A][A][A][A][A][A][A][B]   row 3 — accents
- * [B][B][B][B][S][B][B][B][B]   row 4 — S = START button (40)
+ * [B][B][B][B][H][B][B][B][B]   row 0 — H = header / instruction item  (slot  4)
+ * [B][B][B][B][I][B][B][B][B]   row 1 — I = input slot                 (slot 13)
+ * [B][B][B][B][S][B][B][B][B]   row 2 — S = START button               (slot 22)
  * </pre>
  *
+ * <h3>Design goals</h3>
+ * <ul>
+ *   <li>A player must understand what to do within 2 seconds — including children,
+ *       mobile users, and controller / Bedrock players.</li>
+ *   <li>ONE open slot (13) draws the eye immediately against the dark pane background.</li>
+ *   <li>The header item (slot 4) provides explicit text instructions on hover.</li>
+ *   <li>The START button (slot 22) is directly below the input slot — natural read order.</li>
+ *   <li>Minimal pane count — 25 border panes, no inner accent layer.</li>
+ * </ul>
+ *
  * <h3>Interaction model</h3>
- * <b>Pre-commit</b>: the input slot (22) is completely unrestricted — normal click,
- * pick-up, and shift-click all work naturally.  Pane and border slots are cancelled by
- * {@link StagingGuiListener} to prevent item theft or ghost cursors from pane-swaps,
- * but the player's own inventory is fully interactive.  No special shift-click routing
- * is performed: since slot 22 is the only non-pane slot in the top inventory, Bukkit
- * naturally routes shift-clicks from the player's inventory directly to it.
- * This design works correctly on Java, Bedrock (Geyser), controller, and touch inputs.
+ * <b>Pre-commit</b>: input slot (13) is fully unrestricted — normal click, pick-up,
+ * and shift-click all work naturally.  All other top-inventory slots are cancelled by
+ * {@link StagingGuiListener} to prevent item theft or ghost cursors.  The player's own
+ * inventory is fully interactive.  No special shift-click routing is required: slot 13
+ * is the only non-pane slot in the top inventory, so Bukkit routes shift-clicks from
+ * the player inventory directly to it on all platforms.
  *
  * <b>Post-commit</b>: once START is pressed, ALL inventory interactions are cancelled
- * (hard lock) until capture either succeeds (GUI closes) or fails (GUI restored).
+ * (hard lock) until capture succeeds (GUI closes) or fails (GUI restored for retry).
  *
  * <h3>Stack clamping</h3>
- * Clamping happens at {@link #triggerStart} time, NOT at insert time.
- * If the inserted stack exceeds {@link PluginConfig#maxInsertAmount()}, the excess is
- * returned to the player's inventory immediately before the WAL checkpoint.
- * Pre-commit insertion is never intercepted or modified.
+ * Clamping happens at {@link #triggerStart} time, NOT at insert time.  If the inserted
+ * stack exceeds {@link PluginConfig#maxInsertAmount()}, the excess is returned to the
+ * player's inventory immediately before the WAL checkpoint.
  *
  * <h3>Cancel (ESC)</h3>
- * When the player closes the GUI without pressing START, any item in slot 22
- * is returned via {@link #returnAndClose(UUID)}.
+ * Any item in slot 13 is returned via {@link #returnAndClose(UUID)} when the player
+ * closes without pressing START.
  *
  * <h3>Thread safety</h3>
  * All public methods must be called on the main thread.
@@ -75,30 +81,36 @@ public final class StagingGui {
 
     // ── Layout constants ──────────────────────────────────────────────────────
 
-    /** Slot where the player places their sacrifice — center of row 2 (slot 18+4). */
-    static final int SLOT_INPUT = 22;
+    /** Center of row 0 — informational header item with hover instructions. */
+    private static final int SLOT_HEADER = 4;
 
-    /** Slot of the START button — center of row 4 (slot 36+4). */
-    static final int SLOT_START = 40;
+    /** Center of row 1 — the player places their sacrifice here. */
+    static final int SLOT_INPUT  = 13;
 
-    // ── Pre-built shared panes (constructed once, cloned on use) ─────────────
+    /** Center of row 2 — START button (BARRIER when inactive, NETHER_STAR when active). */
+    static final int SLOT_START  = 22;
 
+    /** Total inventory size: 3 rows × 9 columns = 27 slots. */
+    private static final int INV_SIZE = 27;
+
+    // ── Pre-built shared pane (constructed once, cloned on use) ──────────────
+
+    /** Background filler for all non-functional slots — dark, minimal. */
     private static final ItemStack BORDER_PANE = hiddenPane(Material.BLACK_STAINED_GLASS_PANE);
-    private static final ItemStack ACCENT_PANE = hiddenPane(Material.PURPLE_STAINED_GLASS_PANE);
 
     // ── State ─────────────────────────────────────────────────────────────────
 
     private final VoidMachinePlugin plugin;
-    private final MessageManager messages;
-    private final PluginConfig config;
+    private final MessageManager    messages;
+    private final PluginConfig      config;
     private final ItemCaptureService captureService;
 
     /** Active sessions keyed by player UUID. */
     private final ConcurrentHashMap<UUID, StagingSession> sessions = new ConcurrentHashMap<>();
 
     /**
-     * Set of all open staging inventories. Checked by {@link StagingGuiListener} to
-     * quickly identify whether the player's open view belongs to us.
+     * Set of all open staging inventories. Checked by {@link StagingGuiListener}
+     * to quickly identify whether the player's open view belongs to this GUI.
      */
     final Set<Inventory> activeInventories =
             Collections.newSetFromMap(new ConcurrentHashMap<>());
@@ -129,10 +141,12 @@ public final class StagingGui {
         if (sessions.containsKey(uuid)) return;
 
         Component title = messages.render("staging.gui.title");
-        Inventory inv   = Bukkit.createInventory(null, 45, title);
+        Inventory inv   = Bukkit.createInventory(null, INV_SIZE, title);
 
         fillLayout(inv);
-        inv.setItem(SLOT_START, buildStartButton(false));
+        inv.setItem(SLOT_HEADER, buildHeaderItem(false));
+        inv.setItem(SLOT_START,  buildStartButton(false));
+        // SLOT_INPUT stays as AIR — the only open slot creates immediate visual clarity.
 
         sessions.put(uuid, new StagingSession(machine, inv));
         activeInventories.add(inv);
@@ -140,7 +154,7 @@ public final class StagingGui {
     }
 
     /**
-     * Refresh the START button based on whether slot 22 currently holds an item.
+     * Refresh the START button and header item based on whether slot 13 holds an item.
      * No-op if the session is in committed state.
      * Called by {@link StagingGuiListener} after any change to the input slot.
      */
@@ -148,7 +162,8 @@ public final class StagingGui {
         StagingSession session = sessions.get(uuid);
         if (session == null || session.committed) return;
         boolean hasItem = !ItemValidator.isEmpty(session.inv.getItem(SLOT_INPUT));
-        session.inv.setItem(SLOT_START, buildStartButton(hasItem));
+        session.inv.setItem(SLOT_START,  buildStartButton(hasItem));
+        session.inv.setItem(SLOT_HEADER, buildHeaderItem(hasItem));
     }
 
     /**
@@ -156,14 +171,14 @@ public final class StagingGui {
      *
      * <h3>Sequence</h3>
      * <ol>
-     *   <li>Cursor item resolved: if player holds an item on cursor when pressing START,
-     *       it is moved to slot 22 (if empty) or returned to inventory (if occupied).</li>
+     *   <li>Cursor item resolved: if the player holds an item on cursor when pressing
+     *       START, it is moved to slot 13 (if empty) or returned to inventory.</li>
      *   <li>Stack clamping: if the sacrifice exceeds {@link PluginConfig#maxInsertAmount()},
      *       the excess is returned immediately and the clamped amount is used.</li>
-     *   <li>Session is marked {@code committed} — GUI freezes immediately (hard lock).</li>
-     *   <li>{@link ItemCaptureService#captureFromGui} is called synchronously.</li>
-     *   <li>If {@code onConsumed} fired (success): session removed, GUI closed.</li>
-     *   <li>If session still exists (failure): GUI restored with the clamped item for retry.</li>
+     *   <li>Session marked {@code committed} — GUI freezes immediately (hard lock).</li>
+     *   <li>{@link ItemCaptureService#captureFromGui} called synchronously.</li>
+     *   <li>Success: session removed, GUI closed.</li>
+     *   <li>Failure: GUI restored with the clamped item for retry.</li>
      * </ol>
      */
     public void triggerStart(@NotNull Player player) {
@@ -172,9 +187,6 @@ public final class StagingGui {
         if (session == null || session.committed) return;
 
         // ── Resolve cursor item ───────────────────────────────────────────────
-        // A player may have left-clicked slot 22 to pick up the item just before
-        // pressing START — the item is now on the cursor, not in slot 22.
-        // Move it back to slot 22 (if empty) or return it to the player's inventory.
         ItemStack cursor = player.getItemOnCursor();
         if (!ItemValidator.isEmpty(cursor)) {
             if (ItemValidator.isEmpty(session.inv.getItem(SLOT_INPUT))) {
@@ -188,12 +200,9 @@ public final class StagingGui {
 
         // ── Get sacrifice item ────────────────────────────────────────────────
         ItemStack input = session.inv.getItem(SLOT_INPUT);
-        if (ItemValidator.isEmpty(input)) return; // nothing placed — ignore click
+        if (ItemValidator.isEmpty(input)) return;
 
-        // ── Clamp to max insert amount (return excess immediately) ────────────
-        // Clamping is deferred to press-time so pre-commit insertion is never
-        // intercepted. All platforms (Java / Bedrock / controller / touch) can
-        // place items naturally; the excess is returned visibly on START press.
+        // ── Clamp to max insert amount ────────────────────────────────────────
         int maxInsert = Math.max(1, config.maxInsertAmount());
         final ItemStack sacrifice;
         if (input.getAmount() > maxInsert) {
@@ -209,14 +218,15 @@ public final class StagingGui {
 
         // ── Lock GUI visually ─────────────────────────────────────────────────
         session.committed = true;
-        session.inv.setItem(SLOT_INPUT, buildProcessingPane());
-        session.inv.setItem(SLOT_START, buildStartButton(false));
+        session.inv.setItem(SLOT_INPUT,  buildProcessingPane());
+        session.inv.setItem(SLOT_START,  buildStartButton(false));
+        session.inv.setItem(SLOT_HEADER, buildProcessingHeader());
 
         // ── Delegate to capture service ───────────────────────────────────────
         captureService.captureFromGui(player, session.machine, sacrifice, () -> {
-            // ── onConsumed: point-of-no-return ───────────────────────────────
-            // Remove session BEFORE closing inventory so the InventoryCloseEvent
-            // sees isStagingInventory() == false and skips returnAndClose.
+            // onConsumed: point-of-no-return.
+            // Remove session BEFORE closing so InventoryCloseEvent sees
+            // isStagingInventory() == false and skips returnAndClose.
             sessions.remove(uuid);
             activeInventories.remove(session.inv);
             if (player.isOnline()
@@ -226,30 +236,25 @@ public final class StagingGui {
         });
 
         // ── Restore if capture failed ─────────────────────────────────────────
-        // captureFromGui is synchronous. If onConsumed fired, the session was removed
-        // (sessions.containsKey returns false). If the session is still present,
-        // capture failed — restore the clamped sacrifice item for retry.
+        // captureFromGui is synchronous. If onConsumed fired, the session was already
+        // removed (containsKey returns false). If still present, capture failed.
         if (sessions.containsKey(uuid)) {
             session.committed = false;
-            session.inv.setItem(SLOT_INPUT, sacrifice);
-            session.inv.setItem(SLOT_START, buildStartButton(true));
+            session.inv.setItem(SLOT_INPUT,  sacrifice);
+            session.inv.setItem(SLOT_START,  buildStartButton(true));
+            session.inv.setItem(SLOT_HEADER, buildHeaderItem(true));
         }
     }
 
     /**
      * Return the item in {@code SLOT_INPUT} to the player and remove the session.
-     * Called by {@link StagingGuiListener} when the player closes the GUI (ESC).
-     *
-     * <p>No-op if no session exists. If the session is {@code committed}, the slot
-     * holds a processing placeholder — no item is returned.</p>
+     * Called by {@link StagingGuiListener} when the player closes (ESC).
      */
     public void returnAndClose(@NotNull UUID uuid) {
         StagingSession session = sessions.remove(uuid);
         if (session == null) return;
         activeInventories.remove(session.inv);
 
-        // If committed, the real item is either captured (session was already removed
-        // by onConsumed) or restored to slot 22 (committed=false). Either way, safe to skip.
         if (!session.committed) {
             ItemStack input = session.inv.getItem(SLOT_INPUT);
             if (!ItemValidator.isEmpty(input)) {
@@ -263,16 +268,16 @@ public final class StagingGui {
     }
 
     /**
-     * Remove and return the item currently in {@code SLOT_INPUT} for this player's session.
+     * Remove and return the item in {@code SLOT_INPUT} for this player's session.
      * Returns {@code null} if no session or slot is empty.
      *
-     * <p>Used by {@link com.voidmachine.interaction.PlayerDeathListener} to extract the
-     * item for proper death-loot handling before calling {@link #closeSessionSilently}.</p>
+     * <p>Used by {@link com.voidmachine.interaction.PlayerDeathListener} to extract
+     * the item for death-drop handling before calling {@link #closeSessionSilently}.</p>
      */
     @Nullable
     public ItemStack takeInputItem(@NotNull UUID uuid) {
         StagingSession session = sessions.get(uuid);
-        if (session == null || session.committed) return null; // committed = item captured/processing
+        if (session == null || session.committed) return null;
         ItemStack item = session.inv.getItem(SLOT_INPUT);
         if (ItemValidator.isEmpty(item)) return null;
         session.inv.setItem(SLOT_INPUT, null);
@@ -280,8 +285,8 @@ public final class StagingGui {
     }
 
     /**
-     * Close the session <em>without</em> returning the item in slot 22.
-     * Use when the caller has already handled the item (e.g. death listener added it to drops).
+     * Close the session without returning the item.
+     * Use when the caller has already handled the item (e.g. death listener).
      */
     public void closeSessionSilently(@NotNull UUID uuid) {
         StagingSession session = sessions.remove(uuid);
@@ -289,16 +294,14 @@ public final class StagingGui {
         activeInventories.remove(session.inv);
         Player player = plugin.getServer().getPlayer(uuid);
         if (player != null && player.isOnline()) {
-            Inventory top = player.getOpenInventory().getTopInventory();
-            if (session.inv.equals(top)) {
+            if (session.inv.equals(player.getOpenInventory().getTopInventory())) {
                 player.closeInventory();
             }
         }
     }
 
     /**
-     * Close all sessions and return items. Called from
-     * {@code VoidMachinePlugin.onDisable()}.
+     * Close all sessions and return items. Called from {@code VoidMachinePlugin.onDisable()}.
      */
     public void shutdown() {
         for (UUID uuid : List.copyOf(sessions.keySet())) {
@@ -308,24 +311,19 @@ public final class StagingGui {
         activeInventories.clear();
     }
 
-    /**
-     * Returns {@code true} if the given inventory is an active staging GUI.
-     */
+    /** Returns {@code true} if the given inventory is an active staging GUI. */
     public boolean isStagingInventory(@NotNull Inventory inv) {
         return activeInventories.contains(inv);
     }
 
-    /**
-     * Returns {@code true} if the player has an open staging session.
-     * Used by {@link com.voidmachine.interaction.MachineInteractionListener} as a gate.
-     */
+    /** Returns {@code true} if the player has an open staging session. */
     public boolean hasOpenSession(@NotNull UUID uuid) {
         return sessions.containsKey(uuid);
     }
 
     /**
-     * Returns {@code true} if the player's staging session is in committed state
-     * (START was pressed; capture in progress). All input is locked while committed.
+     * Returns {@code true} if the player's staging session is committed
+     * (START pressed; capture pending). All input is locked while committed.
      */
     public boolean isCommitted(@NotNull UUID uuid) {
         StagingSession session = sessions.get(uuid);
@@ -337,27 +335,30 @@ public final class StagingGui {
     // =========================================================================
 
     /**
-     * Fill all non-special slots.
-     * Row 0 / row 4 / column 0 / column 8 → border; otherwise → accent.
-     * {@code SLOT_INPUT} and {@code SLOT_START} are skipped.
+     * Fill all non-functional slots with the dark border pane.
+     * Skips {@link #SLOT_HEADER}, {@link #SLOT_INPUT}, and {@link #SLOT_START}.
      */
     private static void fillLayout(@NotNull Inventory inv) {
-        for (int slot = 0; slot < 45; slot++) {
-            if (slot == SLOT_INPUT || slot == SLOT_START) continue;
-            int row = slot / 9;
-            int col = slot % 9;
-            boolean isBorder = (row == 0 || row == 4 || col == 0 || col == 8);
-            inv.setItem(slot, isBorder ? BORDER_PANE.clone() : ACCENT_PANE.clone());
+        for (int slot = 0; slot < INV_SIZE; slot++) {
+            if (slot == SLOT_HEADER || slot == SLOT_INPUT || slot == SLOT_START) continue;
+            inv.setItem(slot, BORDER_PANE.clone());
         }
     }
 
+    /**
+     * Header instruction item shown at the top-centre of the GUI.
+     *
+     * <p>Tooltip is visible (not hidden) so players can read the instructions on hover.
+     * Changes text when the player places an item in the input slot.</p>
+     */
     @NotNull
-    private ItemStack buildStartButton(boolean active) {
-        Material mat   = active ? Material.NETHER_STAR : Material.BARRIER;
-        String namePath = active ? "staging.start-button.active-name"
-                                 : "staging.start-button.inactive-name";
-        String lorePath = active ? "staging.start-button.active-lore"
-                                 : "staging.start-button.inactive-lore";
+    private ItemStack buildHeaderItem(boolean hasItem) {
+        String namePath = hasItem
+                ? "staging.header-item.ready-name"
+                : "staging.header-item.empty-name";
+        String lorePath = hasItem
+                ? "staging.header-item.ready-lore"
+                : "staging.header-item.empty-lore";
 
         Component name = messages.render(namePath)
                 .decoration(TextDecoration.ITALIC, false);
@@ -366,8 +367,8 @@ public final class StagingGui {
                 .map(c -> c.decoration(TextDecoration.ITALIC, false))
                 .toList();
 
-        ItemStack is  = new ItemStack(mat);
-        ItemMeta meta = is.getItemMeta();
+        ItemStack is   = new ItemStack(Material.ENDER_EYE);
+        ItemMeta  meta = is.getItemMeta();
         if (meta != null) {
             meta.displayName(name);
             if (!lore.isEmpty()) meta.lore(lore);
@@ -376,24 +377,69 @@ public final class StagingGui {
         return is;
     }
 
-    /** Locked visual placed in slot 22 immediately when START is pressed. */
+    /** Header item shown while capture is pending — replaces instruction text. */
     @NotNull
-    private static ItemStack buildProcessingPane() {
-        ItemStack is  = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = is.getItemMeta();
+    private static ItemStack buildProcessingHeader() {
+        ItemStack is   = new ItemStack(Material.ENDER_EYE);
+        ItemMeta  meta = is.getItemMeta();
         if (meta != null) {
             meta.displayName(
-                    Component.text("Processing…", NamedTextColor.GRAY)
-                            .decoration(TextDecoration.ITALIC, false));
+                    Component.text("The ritual begins…", NamedTextColor.DARK_PURPLE)
+                             .decoration(TextDecoration.ITALIC, false));
             is.setItemMeta(meta);
         }
         return is;
     }
 
     @NotNull
+    private ItemStack buildStartButton(boolean active) {
+        Material mat      = active ? Material.NETHER_STAR : Material.BARRIER;
+        String   namePath = active ? "staging.start-button.active-name"
+                                   : "staging.start-button.inactive-name";
+        String   lorePath = active ? "staging.start-button.active-lore"
+                                   : "staging.start-button.inactive-lore";
+
+        Component name = messages.render(namePath)
+                .decoration(TextDecoration.ITALIC, false);
+        List<Component> lore = messages.renderList(lorePath)
+                .stream()
+                .map(c -> c.decoration(TextDecoration.ITALIC, false))
+                .toList();
+
+        ItemStack is   = new ItemStack(mat);
+        ItemMeta  meta = is.getItemMeta();
+        if (meta != null) {
+            meta.displayName(name);
+            if (!lore.isEmpty()) meta.lore(lore);
+            if (active) {
+                // Enchant-glow override — purple sheen on NETHER_STAR makes the
+                // START button feel alive and important. No actual enchantment applied.
+                meta.setEnchantmentGlintOverride(true);
+            }
+            is.setItemMeta(meta);
+        }
+        return is;
+    }
+
+    /** Locked visual placed in the input slot immediately when START is pressed. */
+    @NotNull
+    private static ItemStack buildProcessingPane() {
+        ItemStack is   = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta  meta = is.getItemMeta();
+        if (meta != null) {
+            meta.displayName(
+                    Component.text("Processing…", NamedTextColor.GRAY)
+                             .decoration(TextDecoration.ITALIC, false));
+            is.setItemMeta(meta);
+        }
+        return is;
+    }
+
+    /** Creates a glass pane with a hidden tooltip — background filler only. */
+    @NotNull
     private static ItemStack hiddenPane(@NotNull Material mat) {
-        ItemStack is  = new ItemStack(mat);
-        ItemMeta meta = is.getItemMeta();
+        ItemStack is   = new ItemStack(mat);
+        ItemMeta  meta = is.getItemMeta();
         if (meta != null) {
             meta.displayName(Component.empty());
             meta.setHideTooltip(true);
@@ -417,11 +463,11 @@ public final class StagingGui {
     private static final class StagingSession {
 
         final MachineBlock machine;
-        final Inventory inv;
+        final Inventory    inv;
 
         /**
-         * Set to {@code true} the moment START is clicked.
-         * While {@code true}, ALL inventory interactions are cancelled.
+         * Set {@code true} the moment START is clicked.
+         * While {@code true} ALL inventory interactions are cancelled.
          * Reset to {@code false} if {@link ItemCaptureService#captureFromGui} fails.
          */
         volatile boolean committed = false;
