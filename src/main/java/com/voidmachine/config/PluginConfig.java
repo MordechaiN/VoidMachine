@@ -363,6 +363,19 @@ public final class PluginConfig {
     }
 
     // =========================================================================
+    //  Atmosphere
+    // =========================================================================
+
+    /**
+     * Master toggle for idle ambient effects and attract-mode pulses.
+     * When {@code false}, {@link com.voidmachine.animation.AmbientEffectScheduler}
+     * is not started (or is stopped on reload). Defaults to {@code true}.
+     */
+    public boolean atmosphereEnabled() {
+        return config.getBoolean("atmosphere.enabled", true);
+    }
+
+    // =========================================================================
     //  World-machine animation
     // =========================================================================
 

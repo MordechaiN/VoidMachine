@@ -9,6 +9,7 @@
  */
 package com.voidmachine;
 
+import com.voidmachine.animation.AmbientEffectScheduler;
 import com.voidmachine.animation.AnimationPipeline;
 import com.voidmachine.animation.AnimationWatchdog;
 import com.voidmachine.animation.CinematicGui;
@@ -79,6 +80,7 @@ public final class VoidMachinePlugin extends JavaPlugin {
     private AnimationPipeline animationPipeline;
     private CinematicGui cinematicGui;
     private StagingGui stagingGui;
+    private AmbientEffectScheduler ambientEffects;
 
     @Override
     public void onLoad() {
@@ -123,6 +125,8 @@ public final class VoidMachinePlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         try {
+            // Ambient effects first — purely cosmetic, safe to kill immediately.
+            if (ambientEffects != null)   ambientEffects.shutdown();
             // Stop animation pipeline before aborting transactions
             // so display entities and boss bars are cleaned up first.
             if (stagingGui != null)       stagingGui.shutdown();
@@ -222,6 +226,12 @@ public final class VoidMachinePlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new MachineBlockListener(
                 pluginConfig, machineRegistry, txRegistry, captureService, getLogger()), this);
 
+        // ── Ambient atmosphere ──────────────────────────────────────────────
+        this.ambientEffects = new AmbientEffectScheduler(this, pluginConfig, machineRegistry);
+        if (pluginConfig.atmosphereEnabled()) {
+            ambientEffects.start();
+        }
+
         // ── Commands ────────────────────────────────────────────────────────
         PluginCommand command = Objects.requireNonNull(getCommand("voidmachine"),
                 "voidmachine command is missing from plugin.yml");
@@ -245,6 +255,11 @@ public final class VoidMachinePlugin extends JavaPlugin {
             roller.reload();
             effects.reload();
             discord.reload();
+            // Restart ambient scheduler so atmosphere.enabled change takes effect.
+            if (ambientEffects != null) {
+                ambientEffects.shutdown();
+                if (pluginConfig.atmosphereEnabled()) ambientEffects.start();
+            }
             return true;
         } catch (Exception ex) {
             getLogger().severe("Reload failed: " + ex.getMessage());
@@ -275,4 +290,5 @@ public final class VoidMachinePlugin extends JavaPlugin {
     public AnimationWatchdog watchdog()            { return watchdog; }
     public ItemCaptureService captureService()     { return captureService; }
     public AnimationPipeline animationPipeline()   { return animationPipeline; }
+    public AmbientEffectScheduler ambientEffects() { return ambientEffects; }
 }

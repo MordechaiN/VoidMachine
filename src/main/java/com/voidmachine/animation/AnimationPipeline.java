@@ -312,6 +312,13 @@ public final class AnimationPipeline {
             if (ctx.step % 20 == 0) {
                 float pitch = 0.8f + (progress * 0.4f); // 0.8 → 1.16 as it fills
                 playSound(player, SND_PORTAL_AMBIENT, 0.35f, pitch);
+                // World-space version — spectators nearby hear the machine building.
+                // volume 0.4 → heard ≈ 6 blocks; subtle enough not to be intrusive.
+                World rampWorld = machLoc.getWorld();
+                if (rampWorld != null) {
+                    rampWorld.playSound(machLoc.clone().add(0.5, 0.5, 0.5),
+                            SND_PORTAL_AMBIENT, 0.40f, pitch);
+                }
             }
 
             // Update cinematic GUI.
@@ -351,8 +358,14 @@ public final class AnimationPipeline {
         ctx.bossBar.color(BossBar.Color.RED);
         ctx.bossBar.name(messages.render("animation.bossbar.tension"));
 
-        // Tension sound — deep respawn-anchor hum.
+        // Tension sound — deep respawn-anchor hum (player-local, full volume).
         playSound(player, SND_ANCHOR_AMBIENT, 0.9f, 0.5f);
+        // World-space version — spectators within ~8 blocks feel the dread too.
+        World tensionWorld = machLoc.getWorld();
+        if (tensionWorld != null) {
+            tensionWorld.playSound(machLoc.clone().add(0.5, 0.5, 0.5),
+                    SND_ANCHOR_AMBIENT, 0.5f, 0.5f);
+        }
 
         // Update cinematic GUI.
         CinematicGui cg = cinematicGui;
@@ -577,6 +590,8 @@ public final class AnimationPipeline {
                 if (world != null) {
                     world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 30, 0.4, 0.4, 0.4, 0.08);
                     world.spawnParticle(Particle.END_ROD, center, 12, 0.3, 0.3, 0.3, 0.03);
+                    // World-space sound — nearby players (~32 blocks) hear the surge.
+                    world.playSound(center, SND_LEVELUP, 2.0f, 1.3f);
                 }
             }
             case JACKPOT_X5 -> {
@@ -585,8 +600,26 @@ public final class AnimationPipeline {
                 if (world != null) {
                     world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 50, 0.5, 0.5, 0.5, 0.15);
                     world.spawnParticle(Particle.END_ROD, center, 20, 0.4, 0.4, 0.4, 0.05);
-                    // Visual lightning — no damage, no fire.
+
+                    // First lightning strike + world-space boom heard ~64 blocks out.
                     world.strikeLightningEffect(machLoc);
+                    world.playSound(center, SND_CHALLENGE_DONE, 4.0f, 1.0f);
+
+                    // Second strike — +10 ticks. Extra totem burst.
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                            world.strikeLightningEffect(machLoc);
+                            world.spawnParticle(Particle.TOTEM_OF_UNDYING,
+                                    center, 30, 0.4, 0.4, 0.4, 0.10);
+                        }
+                    }, 10L);
+
+                    // Third strike — +20 ticks. Final punctuation.
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                            world.strikeLightningEffect(machLoc);
+                        }
+                    }, 20L);
                 }
             }
         }

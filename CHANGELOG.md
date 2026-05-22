@@ -7,6 +7,36 @@ Format: [version] — date, then Added / Changed / Fixed / Security sections.
 
 ## [Unreleased]
 
+### Added
+- **Idle ambient effects** (`AmbientEffectScheduler`):
+  - Portal smoke drift every 1 s from all idle machine blocks.
+  - Soul-fire flame accent + respawn-anchor hum (world-space, ~4 block range) every 3 s.
+  - Attract-mode pulse (END_ROD burst + amethyst chime) every 30 s — catches nearby
+    players' attention without constant noise.
+  - Effects staggered per machine via `locationKey().hashCode()` to prevent
+    multi-machine tick spikes.
+  - Machines mid-ritual are skipped; chunks are never force-loaded.
+  - Controlled by `atmosphere.enabled` in `config.yml` (default `true`).
+  - `/vm reload` restarts the scheduler so the flag takes effect immediately.
+- **Social visibility during active ritual**:
+  - World-space portal ambient sound every ~20 ramp steps (~40 ticks) —
+    spectators within 6 blocks hear the machine building.
+  - World-space respawn-anchor tension hum at ritual tension phase —
+    spectators within 8 blocks feel the dread.
+  - World-space TRIPLED sound (×2 volume, ~32 block range) — nearby players
+    hear surges without needing to watch.
+- **Jackpot triple-lightning event**: three sequential `strikeLightningEffect` calls
+  at +0 / +10 / +20 ticks with extra totem burst on the second. World-space
+  `ui.toast.challenge_complete` at volume 4.0 (~64 block range) — the whole server
+  area knows something happened.
+
+### Fixed
+- **`/vm admin remove` now clears the physical block**: previously the registry entry
+  was deleted but the block remained in the world. The command now loads the chunk if
+  needed, checks that the block is still the configured core material, and sets it to
+  AIR before deregistering. If the world is unloaded or the block was already changed,
+  the admin receives a specific warning and the machine is deregistered regardless.
+
 ### Changed
 - **Staging GUI interaction model overhauled** for Bedrock / controller / touch compatibility:
   - **Pre-commit phase is now fully unrestricted**: normal click, pick-up, and
