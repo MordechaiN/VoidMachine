@@ -1,0 +1,367 @@
+# =============================================================================
+#  VoidMachine — Configuration
+#
+#  A brutal item-sink ritual machine.
+#  Every value here is hot-reloadable via /voidmachine reload.
+#
+#  Created by Mordechai Neeman <neeman2009@gmail.com>
+#  https://github.com/MordechaiNeeman/VoidMachine
+#  Issues: https://github.com/MordechaiNeeman/VoidMachine/issues
+#
+#  Copyright (c) 2026 Mordechai Neeman. Licensed under the MIT License.
+# =============================================================================
+
+# Plugin-wide settings.
+plugin:
+  # Debug logging. Verbose, do not enable in production.
+  debug: false
+  # Language file to load from /messages.
+  language: en
+  # Locale used for number/date formatting in messages.
+  locale: en-US
+
+# =============================================================================
+#  Outcome chances (weights, NOT percentages).
+#  The roller sums these and rolls a weighted choice.
+#  Defaults match the design spec:
+#    DESTROYED  72 / 100  → 72%
+#    RETURNED   18 / 100  → 18%
+#    DOUBLED     7 / 100  →  7%
+#    TRIPLED     2 / 100  →  2%
+#    JACKPOT_X5  1 / 100  →  1%
+# =============================================================================
+outcomes:
+  destroyed:  72.0
+  returned:   18.0
+  doubled:     7.0
+  tripled:     2.0
+  jackpot_x5:  1.0
+
+# Configurable multipliers for non-default jackpot tiers.
+# DOUBLED, TRIPLED, JACKPOT_X5 multipliers are taken from here.
+multipliers:
+  doubled:    2
+  tripled:    3
+  jackpot_x5: 5
+
+# Hard ceiling on returned stack size, to keep server economy safe.
+# A roll that would exceed this cap is clamped (never silently deleted).
+limits:
+  # Max items that can be inserted in a single sacrifice (per slot, summed).
+  max-insert-amount: 256
+  # Hard cap on items returned by a single roll.
+  max-return-amount: 1024
+  # If a jackpot would exceed max-return-amount, clamp instead of cancel.
+  clamp-on-overflow: true
+
+# =============================================================================
+#  Cooldowns
+# =============================================================================
+cooldown:
+  # Per-player cooldown between sacrifices, in seconds. 0 disables.
+  per-player-seconds: 8
+  # Global cooldown across all players. 0 disables. Useful for huge servers.
+  global-seconds: 0
+  # Daily sacrifice cap per player. 0 disables.
+  daily-limit: 0
+  # Notify player when blocked by cooldown.
+  notify-on-block: true
+
+# =============================================================================
+#  Worlds
+# =============================================================================
+worlds:
+  # If non-empty, machine is usable ONLY in these worlds. Empty = all worlds.
+  allowed: []
+  # Worlds where the machine is explicitly disabled. Takes priority over allowed.
+  blocked: []
+
+# =============================================================================
+#  Item blacklist / safety
+#
+#  The plugin REFUSES to consume any of the following.
+#  These checks run BEFORE the GUI accepts an item.
+# =============================================================================
+blacklist:
+  # Containers can hold items, so we block them by default to prevent dupes.
+  block-containers: true
+  # Bundles can hold items.
+  block-bundles: true
+  # Block any item that contains a BlockEntityTag (chest, shulker, beehive, etc).
+  block-block-entity: true
+  # Block items with custom NBT marking them as plugin-owned (your-other-plugin items).
+  block-marked-pdc-keys:
+    - "voidmachine:locked"
+  # Hard list of materials never accepted.
+  materials:
+    - WRITTEN_BOOK
+    - WRITABLE_BOOK
+    - KNOWLEDGE_BOOK
+    - FILLED_MAP
+    - BUNDLE
+    - WHITE_BUNDLE
+    - ORANGE_BUNDLE
+    - MAGENTA_BUNDLE
+    - LIGHT_BLUE_BUNDLE
+    - YELLOW_BUNDLE
+    - LIME_BUNDLE
+    - PINK_BUNDLE
+    - GRAY_BUNDLE
+    - LIGHT_GRAY_BUNDLE
+    - CYAN_BUNDLE
+    - PURPLE_BUNDLE
+    - BLUE_BUNDLE
+    - BROWN_BUNDLE
+    - GREEN_BUNDLE
+    - RED_BUNDLE
+    - BLACK_BUNDLE
+    - SHULKER_BOX
+    - WHITE_SHULKER_BOX
+    - ORANGE_SHULKER_BOX
+    - MAGENTA_SHULKER_BOX
+    - LIGHT_BLUE_SHULKER_BOX
+    - YELLOW_SHULKER_BOX
+    - LIME_SHULKER_BOX
+    - PINK_SHULKER_BOX
+    - GRAY_SHULKER_BOX
+    - LIGHT_GRAY_SHULKER_BOX
+    - CYAN_SHULKER_BOX
+    - PURPLE_SHULKER_BOX
+    - BLUE_SHULKER_BOX
+    - BROWN_SHULKER_BOX
+    - GREEN_SHULKER_BOX
+    - RED_SHULKER_BOX
+    - BLACK_SHULKER_BOX
+  # Optional namespaced-key blacklist on custom items.
+  # Each entry is "namespace:key" matched against ItemMeta key or PDC keys.
+  custom-keys: []
+
+# =============================================================================
+#  GUI
+# =============================================================================
+gui:
+  title: "<dark_gray>◈ <gradient:#3d0066:#0d0036>The Void Machine</gradient> <dark_gray>◈"
+  # Inventory rows (3, 5, or 6). 5 is the safest for Bedrock/Geyser.
+  rows: 5
+  # Slot the player drops the sacrifice into. Single slot only (anti-dupe).
+  sacrifice-slot: 22
+  # Slot of the activate button.
+  activate-slot: 31
+  # Material of the activate button.
+  activate-button-material: NETHER_STAR
+  # Filler material for empty/decorative slots.
+  filler-material: BLACK_STAINED_GLASS_PANE
+  # Material shown during the animation (cycles through these).
+  animation-materials:
+    - PURPLE_STAINED_GLASS_PANE
+    - MAGENTA_STAINED_GLASS_PANE
+    - PURPLE_STAINED_GLASS_PANE
+    - BLACK_STAINED_GLASS_PANE
+  # If true, players cannot close the inventory mid-animation. Anti-dupe.
+  lock-during-animation: true
+  # If true, fallback safe-return on disconnect or kick mid-animation.
+  return-on-disconnect: true
+
+# =============================================================================
+#  Animation timing (in ticks, 20 ticks = 1 second).
+#  Total animation duration ≈ steps * step-interval-ticks.
+# =============================================================================
+animation:
+  steps: 28
+  step-interval-ticks: 3
+  reveal-delay-ticks: 12
+  reveal-sound-volume: 1.0
+
+# =============================================================================
+#  Sounds — any Bukkit Sound key works.
+# =============================================================================
+sounds:
+  open:           { key: "block.beacon.activate",       volume: 0.6, pitch: 0.6 }
+  insert:         { key: "block.lodestone.place",       volume: 0.8, pitch: 0.9 }
+  activate:       { key: "block.beacon.power_select",   volume: 0.8, pitch: 0.5 }
+  tick:           { key: "block.note_block.bass",       volume: 0.3, pitch: 1.5 }
+  reveal-destroy: { key: "entity.wither.spawn",         volume: 0.5, pitch: 1.2 }
+  reveal-return:  { key: "block.enchantment_table.use", volume: 0.8, pitch: 1.0 }
+  reveal-double:  { key: "entity.player.levelup",       volume: 0.8, pitch: 1.2 }
+  reveal-triple:  { key: "entity.player.levelup",       volume: 1.0, pitch: 0.8 }
+  reveal-jackpot: { key: "ui.toast.challenge_complete", volume: 1.0, pitch: 1.0 }
+  global-jackpot: { key: "entity.ender_dragon.growl",   volume: 1.0, pitch: 1.4 }
+
+# =============================================================================
+#  Particles — any Bukkit Particle key works.
+# =============================================================================
+particles:
+  enabled: true
+  tick:           { key: "PORTAL",        count: 12, offset: 0.4 }
+  destroy:        { key: "SMOKE",         count: 30, offset: 0.4 }
+  return:         { key: "ENCHANT",       count: 25, offset: 0.5 }
+  multiply:       { key: "TOTEM_OF_UNDYING", count: 40, offset: 0.6 }
+  jackpot:        { key: "DRAGON_BREATH", count: 60, offset: 0.8 }
+
+# =============================================================================
+#  Global events — fired only on TRIPLED or JACKPOT_X5 (configurable).
+# =============================================================================
+events:
+  broadcast-on:
+    - TRIPLED
+    - JACKPOT_X5
+  broadcast-title-on:
+    - JACKPOT_X5
+  lightning-on:
+    - JACKPOT_X5
+  # Server console log on every transaction.
+  log-every-roll: true
+  # DiscordSRV webhook (requires DiscordSRV present).
+  discord:
+    enabled: false
+    # Channel key from DiscordSRV linked-channels config.
+    channel: global
+    # Which outcomes are forwarded to Discord.
+    forward:
+      - JACKPOT_X5
+      - TRIPLED
+
+# =============================================================================
+#  Storage
+# =============================================================================
+storage:
+  # 'yaml' or 'mysql'. MySQL/MariaDB recommended for large servers.
+  type: yaml
+  mysql:
+    host: localhost
+    port: 3306
+    database: voidmachine
+    username: voidmachine
+    password: changeme
+    use-ssl: false
+    pool-size: 8
+    pool-min-idle: 2
+    connection-timeout-ms: 5000
+    table-prefix: vm_
+  # How often (seconds) async stats flush to disk. 0 = on every change.
+  flush-interval-seconds: 60
+  # Max in-memory history entries kept for /voidmachine history.
+  history-cache-size: 200
+
+# =============================================================================
+#  Performance
+# =============================================================================
+performance:
+  # Async pool size for storage I/O. Auto if 0.
+  storage-pool-size: 0
+  # Max concurrent active machines at once. 0 = unlimited.
+  max-concurrent-sessions: 64
+  # Drop incoming click events while session is locked (anti-spam).
+  drop-clicks-during-lock: true
+
+# =============================================================================
+#  Config profiles — named weight sets for physical machines.
+#
+#  Each physical machine references a profile by name. The roller reads weights
+#  from the matching profile. Falls back to the global 'outcomes:' section if
+#  the profile or specific key is missing.
+#
+#  Weights are NOT percentages. The roller normalises whatever you provide.
+#  Public-facing descriptions should be qualitative (common / uncommon / rare /
+#  forbidden) — never expose raw numbers to players.
+#
+#  IMPORTANT: Profiles are global weight configurations for EVERYONE equally.
+#  There is no per-player probability manipulation. Every player sees identical
+#  odds on the same machine.
+# =============================================================================
+profiles:
+  default:
+    destroyed:  74.0
+    returned:   20.0
+    doubled:     4.0
+    tripled:     1.8
+    jackpot_x5:  0.2
+
+  brutal:
+    # Heavier destruction — for a machine that "resists" all offerings.
+    destroyed:  90.0
+    returned:    8.0
+    doubled:     1.5
+    tripled:     0.4
+    jackpot_x5:  0.1
+
+  unstable:
+    # Higher variance — riskier and more rewarding.
+    destroyed:  60.0
+    returned:   22.0
+    doubled:    12.0
+    tripled:     4.5
+    jackpot_x5:  1.5
+
+# =============================================================================
+#  Physical machine settings
+# =============================================================================
+machine:
+  # Material of the core block players right-click to activate the machine.
+  # Must be a non-container block (hoppers cannot interact with non-containers).
+  # RESPAWN_ANCHOR is recommended: it has built-in glow states and ominous aesthetic.
+  core-material: RESPAWN_ANCHOR
+
+  # Hard cap on total registered machines. Admin cannot register more than this.
+  max-registered: 3
+
+  # Hard cap on simultaneous active animations across all machines.
+  max-concurrent-animations: 3
+
+  # Block creative-mode players from using the machine.
+  block-creative: true
+
+  # Block spectator-mode players from using the machine.
+  block-spectator: true
+
+  # Block players with 'vanished' metadata (EssentialsX vanish convention).
+  block-vanished: true
+
+  # Minimum milliseconds between right-clicks from the same player before the
+  # interaction is treated as spam. 0 disables the check.
+  anti-spam-gap-ms: 500
+
+# =============================================================================
+#  Checkpoint / crash recovery
+# =============================================================================
+checkpoint:
+  # If a checkpoint is found in the DELIVERING state on startup (meaning the
+  # server crashed between marking delivery and deleting the checkpoint), should
+  # recovery attempt to deliver the item?
+  #
+  # false (default) — log a WARNING and flag for admin review via
+  #                   /vm admin pending. Safe: no risk of double-delivery.
+  # true            — attempt delivery. Rare double-delivery risk if the item
+  #                   was partially added before the crash.
+  redeliver-on-delivering-state: false
+
+# =============================================================================
+#  World-machine animation (physical machine only, not the GUI system)
+# =============================================================================
+world-animation:
+  # Ticks before the watchdog fires and force-aborts a stuck transaction.
+  # Default: 300 ticks = 15 seconds. Set higher only on TPS-challenged servers.
+  max-duration-ticks: 300
+
+  # Ticks between each animation update. Keep at 3+ for Bedrock client safety.
+  # Lower values = faster animation, more Bedrock packet pressure.
+  step-ticks: 3
+
+  # Duration of the "tension lock" phase in ticks.
+  # During this phase the boss bar freezes at 90%, particles stop, and silence
+  # builds maximum suspense before outcome reveal. Minimum 10 ticks.
+  tension-lock-ticks: 40
+
+  # Particles spawned per animation step. Capped internally at 40.
+  # Reduce to 8 or lower if Bedrock clients experience frame drops.
+  particles-per-step: 12
+
+  # Maximum Display entities spawned per active transaction.
+  # Capped internally at 8. Keep at 4 for most deployments.
+  max-display-entities: 4
+
+  # Radius in blocks within which spectators receive action bar notifications.
+  spectator-radius: 24
+
+  # Radius in blocks within which spectators receive particle effects.
+  spectator-particle-radius: 32

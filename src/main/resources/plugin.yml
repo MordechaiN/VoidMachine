@@ -1,0 +1,71 @@
+# =============================================================================
+#  VoidMachine — plugin descriptor
+#
+#  Created by Mordechai Neeman <neeman2009@gmail.com>
+#  https://github.com/MordechaiNeeman/VoidMachine
+#
+#  Copyright (c) 2026 Mordechai Neeman.
+#  Licensed under the MIT License — see LICENSE for details.
+# =============================================================================
+name: VoidMachine
+version: '${version}'
+main: com.voidmachine.VoidMachinePlugin
+api-version: '1.21'
+folia-supported: false
+load: POSTWORLD
+author: Mordechai Neeman
+authors:
+  - Mordechai Neeman
+contributors:
+  - "(your name here — PRs welcome)"
+description: A brutal item-sink ritual machine. Players sacrifice physical items into the Void for a chance at return, multiplication, or oblivion.
+website: https://github.com/MordechaiNeeman/VoidMachine
+softdepend:
+  - floodgate
+  - DiscordSRV
+  - PlaceholderAPI
+
+commands:
+  voidmachine:
+    description: Main VoidMachine command.
+    usage: /voidmachine <open|stats|history|top|reload|help>
+    aliases: [vm, void]
+    permission: voidmachine.use
+
+permissions:
+  voidmachine.*:
+    description: Grants all VoidMachine permissions.
+    default: op
+    children:
+      voidmachine.use: true
+      voidmachine.stats: true
+      voidmachine.history: true
+      voidmachine.top: true
+      voidmachine.reload: true
+      voidmachine.bypass.cooldown: true
+      voidmachine.notify: true
+      voidmachine.admin: true
+  voidmachine.use:
+    description: Open and use the Void Machine.
+    default: true
+  voidmachine.stats:
+    description: View your own statistics.
+    default: true
+  voidmachine.history:
+    description: View recent machine history.
+    default: true
+  voidmachine.top:
+    description: View global leaderboards.
+    default: true
+  voidmachine.reload:
+    description: Reload plugin configuration.
+    default: op
+  voidmachine.bypass.cooldown:
+    description: Bypass machine cooldowns.
+    default: op
+  voidmachine.notify:
+    description: Receive global jackpot notifications.
+    default: true
+  voidmachine.admin:
+    description: Administrative commands.
+    default: op

@@ -1,0 +1,145 @@
+# =============================================================================
+#  VoidMachine — Messages
+#
+#  Created by Mordechai Neeman <neeman2009@gmail.com>
+#  https://github.com/MordechaiNeeman/VoidMachine
+#
+#  Copyright (c) 2026 Mordechai Neeman. Licensed under the MIT License.
+#
+#  All messages use MiniMessage formatting:
+#  https://docs.advntr.dev/minimessage/format.html
+#
+#  Placeholders:
+#    <player>       — display name of the affected player
+#    <item>         — Minecraft component name of the item
+#    <input>        — number of items inserted
+#    <output>       — number of items returned
+#    <multiplier>   — multiplier (1, 2, 3, 5, ...)
+#    <outcome>      — internal outcome key (DESTROYED, RETURNED, DOUBLED, TRIPLED, JACKPOT_X5)
+#    <cooldown>     — human-readable remaining cooldown
+#    <count>        — generic numeric placeholder
+# =============================================================================
+prefix: "<dark_gray>[<gradient:#7c2ad6:#3b0a6c>VoidMachine</gradient><dark_gray>]"
+
+generic:
+  no-permission: "<prefix> <red>You lack the required permission."
+  player-only: "<prefix> <red>This command can only be used in-game."
+  unknown-command: "<prefix> <gray>Unknown subcommand. Try <white>/voidmachine help"
+  reloaded: "<prefix> <green>Configuration reloaded."
+  reload-failed: "<prefix> <red>Reload failed: <yellow><error>"
+  world-blocked: "<prefix> <red>The machine refuses to wake in this world."
+
+machine:
+  open: "<prefix> <gray>The Void shifts as you approach…"
+  cooldown: "<prefix> <gray>The machine still hums from the last ritual. Wait <yellow><cooldown><gray>."
+  daily-limit: "<prefix> <red>You have already tempted the Void too many times today."
+  global-cooldown: "<prefix> <gray>The Void is overwhelmed. Try again in <yellow><cooldown><gray>."
+  blacklisted: "<prefix> <red>The Void refuses this item."
+  empty-sacrifice: "<prefix> <red>You must place something into the Void to sacrifice."
+  full-inventory: "<prefix> <red>Your inventory is too full to receive what the Void might return."
+  already-in-session: "<prefix> <red>You are already in a ritual."
+
+outcome:
+  destroyed: "<prefix> <gray>The Void consumed <white><input> <gray>×<white> <item><gray>. Nothing returns."
+  returned:  "<prefix> <gray>The Void hesitates. <white><input> <gray>×<white> <item> <gray>spit back unchanged."
+  doubled:   "<prefix> <green>The Void was merciful — <white><output> <gray>×<white> <item> <green>granted!"
+  tripled:   "<prefix> <gold>The Void rewards your courage — <white><output> <gray>×<white> <item> <gold>tripled!"
+  jackpot_x5: "<prefix> <gradient:#ffaa00:#ff5500><b>JACKPOT</b></gradient> <gray>— <white><output> <gray>×<white> <item> <gray>poured from the abyss!"
+
+broadcast:
+  tripled:    "<dark_gray>[<gradient:#7c2ad6:#3b0a6c>VoidMachine</gradient><dark_gray>] <gray><player> <gold>tripled <white><input> <gray>×<white> <item><gold>."
+  jackpot:    "<dark_gray>[<gradient:#7c2ad6:#3b0a6c>VoidMachine</gradient><dark_gray>] <gradient:#ffaa00:#ff5500><b>★ JACKPOT ★</b></gradient> <gray><player> <gray>survived the Void Machine and multiplied <white><input> <gray>×<white> <item> <gray>into <yellow><output><gray>!"
+
+title:
+  jackpot:
+    title: "<gradient:#ffaa00:#ff5500><b>★ JACKPOT ★</b></gradient>"
+    subtitle: "<gray>The Void multiplied your offering."
+    fade-in: 10
+    stay: 60
+    fade-out: 20
+
+gui:
+  loading-label: "<gray>Processing…"
+  result-label: "<dark_gray>◈ <white>Result <dark_gray>◈"
+  insert-here: "<gray>▶ <white>Place sacrifice here"
+  activate-button:
+    name: "<gradient:#7c2ad6:#3b0a6c><b>Activate Machine</b></gradient>"
+    lore:
+      - "<dark_gray>──────────────"
+      - "<gray>Drop one stack of items into the"
+      - "<gray>center slot, then click this button."
+      - ""
+      - "<dark_red>The Void rarely returns what it takes."
+
+stats:
+  header: "<prefix> <gray>Your record of sacrifice:"
+  body: |-
+    <dark_gray>▪ <gray>Total sacrifices: <white><total>
+    <dark_gray>▪ <gray>Items destroyed: <red><destroyed>
+    <dark_gray>▪ <gray>Items returned:  <yellow><returned>
+    <dark_gray>▪ <gray>Items doubled:   <green><doubled>
+    <dark_gray>▪ <gray>Items tripled:   <gold><tripled>
+    <dark_gray>▪ <gray>Jackpots:        <light_purple><jackpots>
+  empty: "<prefix> <gray>You have not yet faced the Void."
+
+top:
+  header: "<prefix> <gray>The most reckless souls:"
+  entry: "<dark_gray> #<rank> <white><player> <gray>— <yellow><value>"
+  empty: "<prefix> <gray>No one has yet faced the Void."
+
+history:
+  header: "<prefix> <gray>Recent rituals:"
+  entry: "<dark_gray>▪ <gray><time> <white><player> <gray>×<white><input> <gray><item> <dark_gray>→ <outcome_color><outcome>"
+  empty: "<prefix> <gray>No history yet."
+
+help:
+  header: "<prefix> <gray>Commands:"
+  lines:
+    - "<dark_gray>▪ <white>/voidmachine open <gray>— open the machine"
+    - "<dark_gray>▪ <white>/voidmachine stats <gray>— your statistics"
+    - "<dark_gray>▪ <white>/voidmachine history <gray>— recent rituals"
+    - "<dark_gray>▪ <white>/voidmachine top <gray>— global leaderboard"
+    - "<dark_gray>▪ <white>/voidmachine reload <gray>— reload config"
+
+# =============================================================================
+#  Staging GUI — pre-commit step (right-click machine → place item → START)
+# =============================================================================
+staging:
+  gui:
+    title: "<dark_gray>⬛ <dark_purple>THE VOID MACHINE <dark_gray>⬛"
+  start-button:
+    inactive-name: "<dark_red>No sacrifice yet"
+    inactive-lore:
+      - "<dark_gray>Place your offering in the glowing center slot."
+      - "<dark_gray>You may take it back at any time before confirming."
+      - ""
+      - "<dark_gray>The Void awaits."
+    active-name: "<gradient:#7c2ad6:#3b0a6c><b>⚡ FEED THE VOID ⚡</b></gradient>"
+    active-lore:
+      - "<dark_gray>Your sacrifice is ready."
+      - ""
+      - "<dark_red>⚠ There is no going back."
+
+# =============================================================================
+#  Physical machine animation (world-space ritual)
+# =============================================================================
+animation:
+  gui:
+    # Inventory title for the cinematic ritual GUI.
+    # Keep it short — long titles may truncate on Bedrock.
+    title: "<dark_gray>⬛ <dark_purple>THE VOID MACHINE <dark_gray>⬛"
+  bossbar:
+    # Shown when the ritual begins (ramp phase).
+    start:   "<dark_purple>The void stirs…"
+    # Shown during the tension pause before the reveal.
+    tension: "<dark_gray>. . ."
+    # Shown at reveal — one per outcome.
+    reveal:
+      destroyed:  "<dark_gray>The void consumed the sacrifice."
+      returned:   "<gray>The machine returns your offering."
+      doubled:    "<green><bold>The void amplifies — ×2!</bold>"
+      tripled:    "<gold><bold>The void surges — ×3!</bold>"
+      jackpot_x5: "<light_purple><bold>THE VOID AWAKENS — ×5!</bold>"
+  # Chat messages sent to the player after the reveal.
+  # Uses the same outcome.* keys defined above (prefix, <input>, <output>, <item>).
+  # Override here only if the physical-machine wording should differ from the GUI.
