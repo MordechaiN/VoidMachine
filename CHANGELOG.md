@@ -94,68 +94,34 @@ Format: [version] — date, then Added / Changed / Fixed / Security sections.
 
 ---
 
-## [Unreleased]
-
-### Changed
-- **Reverted to single-block machine architecture** — multiblock experiment removed entirely.
-
-  The multiblock structure (Chain → Crying Obsidian × 2 → Respawn Anchor → Soul Lanterns × 2 →
-  Hopper) was explored and proved the wrong direction. Specific problems encountered:
-
-  - Structure cluttered the visual silhouette and reduced iconic clarity
-  - Multiple block types created maintenance complexity (pistons, physics, grief vectors)
-  - Auto-build tooling added admin surface area with no player-facing benefit
-  - The original single-block machine had **stronger identity** — a lone glowing anchor
-    in a dark room reads immediately as "dangerous, interactive, powerful"
-
-  The Respawn Anchor is the machine. Nothing else. Clean, iconic, stable.
-
-  **Removed:** `StructureValidator.java` (deleted), `byStructureKey` registry index,
-  `registerStructureKeys` / `deregisterStructureKeys` / `atStructureKey` registry methods,
-  `requireStructure()` config getter, `machine.require-structure` config key,
-  all structure block protection logic from `MachineBlockListener`, structure placement
-  and space-checking from `VoidMachineCommand.adminCreate`, structure clearing from
-  `VoidMachineCommand.adminRemove`.
-
-  **Retained:** All sound polish, ambient effects, cinematic GUI, transaction safety,
-  WAL/checkpoint system, Bedrock compatibility work — all intact and unchanged.
-
-- **`/vm admin create` simplified** — admin looks at a block within 5 blocks, runs
-  `/vm admin create <name> [profile]`. Plugin replaces that block with the configured
-  core material and registers. No structure building, no space checking, no orientation.
-  The command now does exactly what the name says: create a machine at a position.
-
-- **`/vm admin remove` simplified** — clears the single anchor block and deregisters.
-  No multi-block teardown.
+## [1.0.0] — 2026-05-23
 
 ### Added
+
 - **Ritual lock state** — players become temporarily claimed by the Void the instant
-  they press START.  Positional movement (XYZ) is blocked; camera rotation remains
-  free so the player feels captured, not frozen.  Also blocked while locked:
+  they press START. Positional movement (XYZ) is blocked; camera rotation remains
+  free so the player feels captured, not frozen. Also blocked while locked:
   inventory open, inventory click, item drop (Q), and hand swap (F).
 
-  Lock is applied in `StagingGui.triggerStart` at the point-of-no-return and
+  Lock applied in `StagingGui.triggerStart` at the point-of-no-return and
   guaranteed to release on every exit path — animation complete, abort, capture
-  failure (same tick), disconnect, death, shutdown, or crash recovery.  No player
-  can be left permanently locked.
+  failure, disconnect, death, shutdown, or crash recovery. No player can be
+  left permanently locked.
 
-  Implementation is Bedrock-safe: `PlayerMoveEvent.setTo(corrected)` redirects the
-  destination to the origin (with yaw/pitch preserved) rather than teleporting the
-  player.  No rubber-banding, no Geyser desync, no jitter.
+  Bedrock-safe: `PlayerMoveEvent.setTo(corrected)` redirects to the player's
+  origin (yaw/pitch preserved) rather than teleporting — no rubber-banding,
+  no Geyser desync, no jitter.
 
-- **`RitualLockService`** (`com.voidmachine.service.RitualLockService`) — tracks
-  locked players, manages per-player portal-particle halos (5 particles at chest
-  level, every 10 ticks while locked), exposes thread-safe `isLocked(UUID)`.
-
-- **`RitualLockListener`** (`com.voidmachine.service.RitualLockListener`) — Bukkit
-  listener enforcing the lock via `PlayerMoveEvent` (set-to correction),
-  `InventoryOpenEvent`, `InventoryClickEvent`, `PlayerDropItemEvent`, and
-  `PlayerSwapHandItemsEvent`.  All handlers at `HIGH` priority; no gameplay
-  systems modified, WAL/checkpoint/rollback order unchanged.
-
-- **Ritual halo particles** — faint portal-particle orbit around locked players
-  gives nearby spectators a visual signal that the ritual is in progress.  No
-  blindness, nausea, or slowness potion effects.
+  - **`RitualLockService`** (`com.voidmachine.service`) — tracks locked players,
+    manages per-player portal-particle halos (5 particles at chest level, every
+    10 ticks while locked), exposes thread-safe `isLocked(UUID)`.
+  - **`RitualLockListener`** (`com.voidmachine.service`) — enforces the lock via
+    `PlayerMoveEvent`, `InventoryOpenEvent`, `InventoryClickEvent`,
+    `PlayerDropItemEvent`, and `PlayerSwapHandItemsEvent`. All handlers at
+    `HIGH` priority.
+  - **Ritual halo particles** — faint portal-particle orbit around locked players
+    gives nearby spectators a visual cue that the ritual is in progress. No
+    blindness, nausea, or slowness applied.
 
 - **`/vm stats`** — server-wide lifetime statistics command. Output:
 
@@ -175,158 +141,27 @@ Format: [version] — date, then Added / Changed / Fixed / Security sections.
   ```
 
   Requires `voidmachine.stats` permission (or `voidmachine.admin`). Persisted to
-  `plugins/VoidMachine/global_stats.yml` — survives restarts. Counters updated
-  asynchronously after each completed transaction; safe to read from any thread.
+  `plugins/VoidMachine/global_stats.yml` — survives restarts.
 
-- **`GlobalStats`** (`com.voidmachine.db.GlobalStats`) — atomic lifetime counter store:
-  total sacrifices, per-outcome counts, total items consumed, per-material item counts
-  (for most-offered detection). Backed by `global_stats.yml`, loaded on startup, saved
-  async after each transaction. Wired into `AnimationPipeline` via `setGlobalStats`.
+- **`GlobalStats`** (`com.voidmachine.db.GlobalStats`) — atomic, YAML-backed
+  lifetime counter store. Tracks total sacrifices, per-outcome counts, total
+  items consumed, and per-material item counts (for top-offering detection).
+  Counters updated asynchronously after each completed transaction. Wired into
+  `AnimationPipeline` via `setGlobalStats`.
 
-- **`voidmachine.stats` permission** — allows players to view `/vm stats` without
-  full admin access. Useful for trusted members who want to see server progress.
+- **`voidmachine.stats` permission** — view `/vm stats` without full admin access.
 
-### Changed
-- **Sound polish pass** — psychological ambient design for idle machines and the ritual:
-  - **Randomised ambient pool** (`AmbientEffectScheduler`): each 3-second hum cycle now
-    draws from three sounds instead of one fixed hum — 70% void hum
-    (`block.respawn_anchor.ambient`), 20% portal resonance echo (`block.portal.ambient`),
-    10% enderman ambient whisper (`entity.enderman.ambient` at v=0.09 — barely audible).
-    Pitch varies ±0.07 each fire so the machine never sounds mechanical.
-  - **Deep bass pulse** (every 45 s): `block.beacon.power_select` at pitch 0.30 — a
-    subsonic thud that players feel more than hear. Heard ≈ 5 blocks.
-  - **Metallic creak** (1-in-7 attract fires): attract-mode sound alternates between the
-    amethyst chime (6/7) and an iron-door creak at pitch 0.42 (1/7) — "something shifted."
-  - **START commit click** (`StagingGui.triggerStart`): `block.anvil.use` at v=0.7, p=0.55
-    fires at the exact moment the player clicks START — heavy, deliberate, irreversible.
-    Natural silence follows (GUI close gap) before the ramp charge (`block.respawn_anchor.charge`)
-    plays in `AnimationPipeline`. Sequence: *click → silence → charge → portal builds → hum → reveal.*
-  - **TRIPLED resonance aftershock**: deep amethyst chime (p=0.65) plays at +4 ticks after
-    the level-up reveal — gives TRIPLED a distinct audio tail vs DOUBLED (which ends at the
-    level-up). Players can hear the difference without reading text.
-  - **Jackpot dragon growl** (`AnimationPipeline`, JACKPOT_X5): `entity.ender_dragon.growl`
-    at v=0.65, p=1.2 plays at the second lightning strike (+10 ticks). Lands simultaneously
-    with the visual flash — "the void acknowledges the sacrifice." Heard ≈ 12 blocks. Gives
-    jackpot a unique audio identity no other outcome has.
-
-### Changed
-- **`/vm admin create` now auto-builds the full structure** — admin UX redesigned:
-  - Admin places any marker block at the desired anchor position, looks at it, runs
-    `/vm admin create <name>`. The plugin places all 7 structure blocks automatically.
-  - Soul lanterns orient to the admin's facing direction (E/W when facing N/S,
-    N/S when facing E/W) so the machine reads naturally from any approach angle.
-  - If any of the 6 surrounding positions is occupied, the command fails with a
-    per-position list: `"1 above (CRYING_OBSIDIAN): STONE at 100,65,-200"`.
-  - Containers at the core position are explicitly rejected (item-loss protection).
-  - Positions that overlap an existing machine structure are rejected.
-  - Admin NEVER needs to memorise or manually build the block layout.
-  - New `StructureValidator` methods: `lanternsOnXAxis(Player)`,
-    `blockedPositions(Block, boolean)`, `placeStructure(Block, Material, boolean)`.
-  - `VoidMachineCommand.adminCreate` Javadoc updated with the new flow.
-  - `config.yml` `machine.require-structure` comment updated to reflect auto-build.
-  - README Installation section updated (5-step flow, no manual building).
-
-### Added
-- **Multiblock machine structure** (`StructureValidator`):
-  - Machines now require a 7-block physical structure to register (config-optional).
-  - Required layout (admin looks at the RESPAWN_ANCHOR core):
-    ```
-              [CHAIN]
-        [CRYING_OBSIDIAN]
-    [SOUL_LANTERN] [RESPAWN_ANCHOR] [SOUL_LANTERN]
-        [CRYING_OBSIDIAN]
-              [HOPPER]
-    ```
-    Soul lanterns may be placed on either the east/west or north/south axis.
-  - **`/vm admin create`** validates the complete structure before registering.
-    Clear per-block error feedback: `"Missing CHAIN 2 blocks above the core."` etc.
-    When validation fails, the structure diagram is shown in chat.
-  - **All 7 structure blocks are indestructible** while the machine is registered —
-    player break, explosions, piston push/pull, and liquid flow are all blocked.
-    The block listener now covers the entire structure, not just the core.
-  - **`/vm admin remove`** clears all 7 structure blocks and restores them to AIR
-    (each block only if it still holds the expected material, so externally-changed
-    blocks are never silently destroyed). All structure protection keys are
-    deregistered before clearing.
-  - `machine.require-structure: true` in `config.yml` (default `true`). Set to
-    `false` to revert to single standalone-block behaviour with no structure check.
-  - New class `com.voidmachine.machine.StructureValidator` — stateless utility:
-    `validate(Block core)` → `Result` enum with per-failure admin message;
-    `allStructureKeys(Block)` / `allStructureKeys(worldName, x, y, z)` → 9-key
-    list (5 vertical + 4 horizontal potential lantern positions);
-    `horizontalNeighbors(Block)` for cleanup; `isStructureMaterial(Material)` for
-    fast listener pre-filter; `STRUCTURE_MATERIALS` constant set.
-  - `MachineRegistry` extended: `byStructureKey` ConcurrentHashMap;
-    `registerStructureKeys()` / `deregisterStructureKeys()` / `atStructureKey()`.
-  - `MachineBlockListener` rewritten to use `atStructureKey` for all protection;
-    material pre-filter via `StructureValidator.isStructureMaterial` replaces the
-    single `config.machineCoreBlock()` check. Player break feedback distinguishes
-    core break (`"use /vm admin remove"`) from structure block break
-    (`"this block is part of a registered machine structure"`).
-  - `VoidMachinePlugin.bootstrap()` registers structure keys for each loaded machine.
-
-### Removed
-- **`ReelSymbol.java` deleted** — orphaned after CinematicGui reel-removal rewrite.
-  Zero remaining references confirmed.
-
-### Changed
-- **Active START button gains enchant-glow** (`setEnchantmentGlintOverride(true)`) —
-  NETHER_STAR pulses with purple sheen when sacrifice is placed. No actual enchantment
-  applied. Instantly signals "this button is live." Geyser-compatible (1.20.5+ API).
-- **RETURNED outcome text changed** from `GRAY` to `WHITE` — clear contrast against
-  the gray border panes in the reveal phase. All five outcomes now have unmistakable
-  distinct colours: DARK_RED / WHITE / GREEN / GOLD / LIGHT_PURPLE.
-- **Header item (slot 4) text shortened** for mobile/controller readability:
-  - Empty → name `"▼ Place item below"` (no lore)
-  - Ready → name `"▼ Press START"` (no lore)
-  Name is always visible; lore is hover-only and invisible on mobile / Bedrock without
-  hover. Instruction now lives entirely in the item name.
-- **Inactive START button lore removed** (was `"Place an item in the slot above."`) —
-  the header item name already gives this instruction; duplication removed.
-- **StagingGui completely redesigned** — Bedrock / mobile / controller / child UX priority:
-  - Layout reduced from 5-row 45-slot to **3-row 27-slot** chest. Simpler, faster to parse.
-  - Column-aligned layout: header (slot 4) → input (slot 13) → START button (slot 22).
-    Natural top-to-bottom read order; player understands immediately without instructions.
-  - Input slot left as **AIR** — the single empty slot against a dark pane background draws
-    the eye immediately on any platform.
-  - **Header item** (ENDER_EYE, slot 4): visible tooltip with explicit instructions.
-    Updates from "Place your offering…" → "Press the button below" when item is placed.
-  - Pane count reduced from 43 to 25. No inner accent layer — border panes only.
-  - START button: BARRIER (inactive) → NETHER_STAR (active). Clear visual state change.
-  - `staging.header-item` section added to `messages.yml` for localisation.
-  - Inactive lore simplified to one line: "Place an item in the slot above."
-- **CinematicGui completely redesigned** — reel slot-machine UI replaced by ritual chamber:
-  - All reel machinery removed: `ReelSession`, `Phase` enum, `scheduleColumnStops`,
-    `REEL_SLOTS`, `OUTCOME_REEL`, `NEAR_MISS`, `AtomicReference`/`AtomicInteger` tension
-    scheduler, and `onRampStep` logic. Net: ~200 lines removed.
-  - Single status pane at slot 13 (center of 3-row inventory).
-  - **Ramp phase**: ENDER_EYE — "⬛ The Void stirs…" — static, dark, atmospheric.
-    Boss bar and world sounds carry all ramp energy.
-  - **Tension phase**: ENDER_EYE dims to ". . ." — mirrors boss bar freeze.
-  - **Reveal phase**: border panes shift to outcome colour (red / grey / green / gold /
-    magenta); center slot becomes a **bold, unambiguous outcome item**:
-    - DESTROYED → BARRIER "✗ CONSUMED" (universally understood icon)
-    - RETURNED → ENDER_PEARL "↩ RETURNED"
-    - DOUBLED → EMERALD "✦ DOUBLED ×2"
-    - TRIPLED → NETHER_STAR "★ TRIPLED ×3"
-    - JACKPOT → NETHER_STAR (enchant glow) "★★ JACKPOT ×5 ★★"
-  - JACKPOT glow via `ItemMeta.setEnchantmentGlintOverride(true)` (1.20.5+ API) —
-    no actual enchantment, purely visual. Geyser-compatible.
-  - `onRampStep` preserved as no-op — `AnimationPipeline` call surface unchanged.
-  - `AnimationPipeline.java` requires zero changes; all signatures preserved.
-  - `ReelSymbol.java` now orphaned (no references). Scheduled for removal.
-
-### Added
 - **Idle ambient effects** (`AmbientEffectScheduler`):
   - Portal smoke drift every 1 s from all idle machine blocks.
   - Soul-fire flame accent + respawn-anchor hum (world-space, ~4 block range) every 3 s.
-  - Attract-mode pulse (END_ROD burst + amethyst chime) every 30 s — catches nearby
-    players' attention without constant noise.
+  - Attract-mode pulse (END_ROD burst + amethyst chime) every 30 s — catches
+    nearby players' attention without constant noise.
   - Effects staggered per machine via `locationKey().hashCode()` to prevent
     multi-machine tick spikes.
   - Machines mid-ritual are skipped; chunks are never force-loaded.
   - Controlled by `atmosphere.enabled` in `config.yml` (default `true`).
   - `/vm reload` restarts the scheduler so the flag takes effect immediately.
+
 - **Social visibility during active ritual**:
   - World-space portal ambient sound every ~20 ramp steps (~40 ticks) —
     spectators within 6 blocks hear the machine building.
@@ -334,63 +169,103 @@ Format: [version] — date, then Added / Changed / Fixed / Security sections.
     spectators within 8 blocks feel the dread.
   - World-space TRIPLED sound (×2 volume, ~32 block range) — nearby players
     hear surges without needing to watch.
+
 - **Jackpot triple-lightning event**: three sequential `strikeLightningEffect` calls
-  at +0 / +10 / +20 ticks with extra totem burst on the second. World-space
-  `ui.toast.challenge_complete` at volume 4.0 (~64 block range) — the whole server
-  area knows something happened.
+  at +0 / +10 / +20 ticks with an extra totem burst on the second strike.
+  World-space `ui.toast.challenge_complete` at volume 4.0 (~64 block range) —
+  the whole server area knows something happened.
+
+### Changed
+
+- **Sound polish pass** — psychological ambient design for idle machines and the ritual:
+  - **Randomised ambient pool** (`AmbientEffectScheduler`): each 3-second hum cycle now
+    draws from three sounds — 70% void hum (`block.respawn_anchor.ambient`), 20% portal
+    resonance echo (`block.portal.ambient`), 10% enderman ambient whisper
+    (`entity.enderman.ambient` at v=0.09). Pitch varies ±0.07 each fire so the
+    machine never sounds mechanical.
+  - **Deep bass pulse** (every ~45 s): `block.beacon.power_select` at pitch 0.30 — a
+    subsonic thud felt more than heard. Range ~5 blocks.
+  - **Metallic creak** (1-in-7 attract fires): attract-mode sound alternates between
+    the amethyst chime (6/7) and an iron-door creak at pitch 0.42 (1/7) —
+    "something shifted."
+  - **START commit click** (`StagingGui.triggerStart`): `block.anvil.use` at v=0.7,
+    p=0.55 fires at the exact moment the player commits — heavy, deliberate,
+    irreversible. Natural silence follows before the ramp charge begins.
+  - **TRIPLED resonance aftershock**: deep amethyst chime (p=0.65) at +4 ticks after
+    the level-up reveal — gives TRIPLED a distinct audio tail vs DOUBLED.
+  - **Jackpot dragon growl** (`entity.ender_dragon.growl`, v=0.65, p=1.2): plays at
+    +10 ticks on the second lightning strike. ~12 block range.
+
+- **`StagingGui` completely redesigned** — Bedrock / mobile / controller / child UX
+  priority:
+  - Layout reduced from 5-row 45-slot to **3-row 27-slot**. Column-aligned:
+    header (slot 4) → input (slot 13) → START button (slot 22). Natural
+    top-to-bottom read order; no platform-specific input required.
+  - Input slot left as AIR — the single empty slot against a dark pane background
+    draws the eye immediately on all platforms.
+  - Header item (ENDER_EYE, slot 4): updates "Place your offering…" →
+    "Press the button below" when item is placed.
+  - START button: BARRIER (inactive) → NETHER_STAR (active), with
+    `setEnchantmentGlintOverride(true)` so the active button visibly glows.
+  - Pane count reduced from 43 to 25.
+
+- **`CinematicGui` completely redesigned** — reel slot-machine concept replaced by
+  ritual chamber:
+  - Single status pane at slot 13 (center of 3-row inventory). No reel machinery.
+  - Ramp phase: ENDER_EYE — *"⬛ The Void stirs…"* — static, atmospheric.
+  - Tension phase: ENDER_EYE dims to *". . ."* — mirrors boss bar freeze.
+  - Reveal phase: border panes shift to outcome colour; center slot becomes a bold,
+    unambiguous outcome item:
+    - DESTROYED → BARRIER *"✗ CONSUMED"*
+    - RETURNED → ENDER_PEARL *"↩ RETURNED"*
+    - DOUBLED → EMERALD *"✦ DOUBLED ×2"*
+    - TRIPLED → NETHER_STAR *"★ TRIPLED ×3"*
+    - JACKPOT → NETHER_STAR (enchant glow) *"★★ JACKPOT ×5 ★★"*
+  - JACKPOT glow via `ItemMeta.setEnchantmentGlintOverride(true)` (1.20.5+ API).
+    No actual enchantment. Geyser-compatible.
+  - `AnimationPipeline` call surface unchanged — zero changes required there.
+
+- **Staging GUI interaction model overhauled** for Bedrock / controller / touch
+  compatibility:
+  - Pre-commit phase fully unrestricted — normal click, pick-up, and shift-click
+    on the input slot and player inventory work naturally.
+  - `shiftClickToInput()` removed — vanilla Bukkit routes shift-clicks to the
+    single empty slot automatically on all platforms.
+  - Cursor item resolved at START press — item held on cursor when clicking START
+    is moved to the input slot (if empty) or returned to inventory (if occupied).
+  - Stack clamping moved to START press — excess returned to player before WAL
+    checkpoint; transparent, not silent.
+  - Pane/border slots remain cancelled (prevents item theft and ghost-cursor from
+    pane swaps).
+
+- **`/vm admin create` improved** — admin looks at any block within 5 blocks and
+  runs `/vm admin create <name> [profile]`. The plugin replaces that block with the
+  configured core material and registers it. No manual pre-placement required.
+
+- **RETURNED outcome text** changed from `GRAY` to `WHITE` — clear contrast against
+  the gray border panes in the reveal phase. All five outcomes now have distinct
+  unmistakable colours: DARK_RED / WHITE / GREEN / GOLD / LIGHT_PURPLE.
+
+- **Header item text shortened** for mobile/controller readability:
+  - Empty → *"▼ Place item below"* (no lore)
+  - Ready → *"▼ Press START"* (no lore)
+  The instruction lives in the item name — always visible, not hover-only.
+
+- **Staging GUI lore updated** to platform-neutral language (removed "shift-click"
+  mention).
+
+- **Animation timing** restored to pre-alpha defaults after experimentation:
+  `animation.steps` = 28, `animation.step-interval-ticks` = 3,
+  `world-animation.step-ticks` = 3, `world-animation.tension-lock-ticks` = 40,
+  `world-animation.max-duration-ticks` = 300.
 
 ### Fixed
-- **`/vm admin remove` now clears the physical block**: previously the registry entry
+
+- **`/vm admin remove` now clears the physical block** — previously the registry entry
   was deleted but the block remained in the world. The command now loads the chunk if
   needed, checks that the block is still the configured core material, and sets it to
-  AIR before deregistering. If the world is unloaded or the block was already changed,
-  the admin receives a specific warning and the machine is deregistered regardless.
-
-### Changed
-- **Staging GUI interaction model overhauled** for Bedrock / controller / touch compatibility:
-  - **Pre-commit phase is now fully unrestricted**: normal click, pick-up, and
-    shift-click all work naturally on the input slot (22) and the player's own inventory.
-    Pane/border slots remain cancelled (prevents item theft and ghost-cursor from pane-swap).
-    Shift-click from player inventory routes natively to slot 22 — no special routing code.
-  - **`shiftClickToInput()` removed**: special-cased shift-click interceptor deleted entirely.
-    Relies on vanilla Bukkit behaviour: slot 22 is the only non-pane slot in the top
-    inventory, so shift-clicks go there automatically on all platforms.
-  - **Cursor item resolved at START press** in `triggerStart()`: if the player holds an
-    item on cursor when clicking START (e.g., picked up the sacrifice just before pressing),
-    it is moved to slot 22 (if empty) or returned to inventory (if occupied).
-  - **Stack clamping moved to START press** (previously at shift-click time): if the placed
-    stack exceeds `maxInsertAmount`, the excess is returned to the player's inventory
-    immediately before the WAL checkpoint — transparently, not silently.
-  - **`StagingGuiListener` simplified**: removed `InventoryAction` import and shift-click
-    routing. Drag handler now only cancels drags that touch non-input top-inventory slots.
-- **Staging GUI lore updated** to platform-neutral language (removed "shift-click" mention).
-
-### Added
-- **Slot-machine reel animation** (`CinematicGui` rewrite + `ReelSymbol`):
-  - 6 reel cells across the middle row of the cinematic GUI (slots 10–12 · 14–16),
-    separated by a divider pane at slot 13.
-  - 7 void-themed symbols: Void Essence, Echo Fragment, Dark Crystal, Runic Dust,
-    Abyss Flame, Void Eye, Jackpot Star.  Pre-built cached `ItemStack`s; only
-    `clone()` hits allocation per tick.
-  - Three-phase speed progression driven by ramp `progress`:
-    `< 0.5` → fast (every 2 t) · `< 0.75` → medium (every 4 t) · `≥ 0.75` → slow (every 6 t).
-  - Staggered column-stop sequence during tension phase (columns 0→5, 2 t apart).
-    Columns 4 and 5 display one near-miss "teaser" symbol for one tick before the
-    final symbol locks — pure visual drama, no gameplay effect.
-  - Per-outcome final reel patterns and per-outcome near-miss symbols designed for
-    maximum dramatic tension (e.g. TRIPLED stops five ECHO_FRAGMENT then drops
-    ABYSS_FLAME on the last column — the classic heartbreaker).
-  - Border panes shift to outcome colour at reveal (red / grey / green / gold / magenta).
-  - Total column-stop sequence ≤ 16 ticks, within the 20-tick tension window.
-
-### Changed
-- **Outcome pre-rolled at animation start** (`AnimationPipeline.start()`):
-  - Outcome is rolled and stored in `AnimationContext` **before** any GUI frame is shown.
-  - `reveal()` uses `ctx.outcome` / `ctx.outputAmount` — no re-roll at reveal.
-  - `CinematicGui.open()` receives `Outcome outcome, int outputAmount` and passes
-    the final symbol pattern to the reel session immediately.
-  - This satisfies the core anti-manipulation rule: reels are presentation only;
-    the outcome is fully committed before the first reel frame renders.
+  AIR. If the world is unloaded or the block was already changed, the admin receives
+  a specific warning and the machine is deregistered regardless.
 
 ---
 
@@ -420,19 +295,20 @@ First alpha milestone. Core gameplay loop playable end-to-end on a live server.
 - **AnimationWatchdog**: hard-aborts stuck transactions after configurable timeout.
 
 ### Changed
-- **Animation speed dramatically reduced** (target ~5 s total, was ~15 s):
+- **Animation speed reduced** (target ~5 s total, was ~15 s):
 
   | Setting                               | Old | New |
   |---------------------------------------|-----|-----|
-  | `animation.steps` (default)          | 28  | 30  |
-  | `animation.step-interval-ticks`      | 3   | 2   |
-  | `world-animation.step-ticks`         | 3   | 2   |
+  | `animation.steps`                    | 28  | 30  |
+  | `animation.step-interval-ticks`      |  3  |  2  |
+  | `world-animation.step-ticks`         |  3  |  2  |
   | `world-animation.tension-lock-ticks` | 40  | 20  |
   | `world-animation.max-duration-ticks` | 300 | 200 |
   | Reveal boss-bar hold (hardcoded)     | 40L | 20L |
 
-  Ramp is now driven by `animation.steps × step-ticks` rather than derived from max-duration.
-  `max-duration-ticks` is now the watchdog timeout only (should remain > actual animation length).
+  Ramp is driven by `animation.steps × step-ticks` rather than derived from max-duration.
+  `max-duration-ticks` is the watchdog timeout only (should remain > actual animation length).
+  *(These values were later restored to their original defaults in v1.0.0.)*
 
 - **Machine block break hardened**: registered blocks can no longer be broken by ANY player,
   including admins. The `voidmachine.admin.break` permission no longer grants break access.

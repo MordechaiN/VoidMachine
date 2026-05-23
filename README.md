@@ -101,7 +101,7 @@ Full ritual experience — boss bar, inventory GUI, particles — on Java and Be
 - 🔐 **Ritual lock** — after pressing START, the player is claimed by the Void. Positional movement blocks; camera stays free. Inventory, drop, and hand-swap blocked too. Releases automatically on all exit paths — no player can be left permanently locked.
 - 🎭 **Rare fakeout reveals** — ~1-in-100 chance for rewarding outcomes to fake a CONSUMED result before snapping to the real reward with a lightning strike. Items always delivered correctly first.
 - ⚡ **Unique jackpot variants** — four distinct visual sequences (Storm, Silent Void, Dragon Resonance, Void Echo) randomly selected per jackpot. Bedrock-safe.
-- 🌑 **Dynamic void events** — random 10–45 minute atmosphere surges on idle machines. Deeper bass, stronger particles, lightning, and *"The Void grows restless…"* nearby action-bar. No gameplay impact.
+- 🌀 **Dynamic void events** — random 10–45 minute atmosphere surges on idle machines. Deeper bass, stronger particles, lightning, and *"The Void grows restless…"* nearby action-bar. No gameplay impact.
 - 👥 **Crowd-reactive ambience** — when 3+ players are nearby, idle hum and reveal effects amplify cosmetically. Everyone always sees identical odds.
 - 💀 **Death-safe** — dying during staging injects the item into death drops. No silent loss.
 - 🎮 **Bedrock / controller / touch first** — designed for lowest-precision input. No shift-click, no keyboard shortcuts, no Java-specific habits required.
@@ -148,25 +148,25 @@ Assign different risk curves to different machines:
 ```yaml
 profiles:
   default:
-    DESTROYED:  40
-    RETURNED:   30
-    DOUBLED:    20
-    TRIPLED:    8
-    JACKPOT_X5: 2
+    destroyed:  74.0
+    returned:   20.0
+    doubled:     4.0
+    tripled:     1.8
+    jackpot_x5:  0.2
 
   brutal:
-    DESTROYED:  60
-    RETURNED:   25
-    DOUBLED:    12
-    TRIPLED:    2
-    JACKPOT_X5: 1
+    destroyed:  90.0
+    returned:    8.0
+    doubled:     1.5
+    tripled:     0.4
+    jackpot_x5:  0.1
 
   unstable:
-    DESTROYED:  35
-    RETURNED:   20
-    DOUBLED:    25
-    TRIPLED:    15
-    JACKPOT_X5: 5
+    destroyed:  60.0
+    returned:   22.0
+    doubled:    12.0
+    tripled:     4.5
+    jackpot_x5:  1.5
 ```
 
 Weights are normalized automatically. Use any positive numbers.
@@ -180,13 +180,21 @@ Weights are normalized automatically. Use any positive numbers.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `machine.core-material` | `RESPAWN_ANCHOR` | Block type for machine registration |
-| `limits.max-insert-amount` | `64` | Maximum items per ritual |
-| `limits.max-return-amount` | `2304` | Return cap (overflow protection) |
+| `limits.max-insert-amount` | `256` | Maximum items per ritual |
+| `limits.max-return-amount` | `1024` | Return cap (overflow protection) |
 | `limits.clamp-on-overflow` | `true` | Clamp oversized returns rather than cancelling |
-| `animation.steps` | `30` | Ramp phase step count |
-| `world-animation.step-ticks` | `2` | Ticks per animation step |
-| `world-animation.tension-lock-ticks` | `20` | Tension pause before reveal |
-| `world-animation.max-duration-ticks` | `200` | Watchdog timeout |
+| `animation.steps` | `28` | Ramp phase step count |
+| `world-animation.step-ticks` | `3` | Ticks per animation step |
+| `world-animation.tension-lock-ticks` | `40` | Tension pause before reveal |
+| `world-animation.max-duration-ticks` | `300` | Watchdog timeout |
+| `fakeout.enabled` | `true` | Enable rare fakeout reveals |
+| `fakeout.chance-1-in` | `100` | Fakeout rarity (1-in-N per rewarding outcome) |
+| `void-events.enabled` | `true` | Enable dynamic void events |
+| `void-events.min-interval-minutes` | `10` | Minimum delay between void events |
+| `void-events.max-interval-minutes` | `45` | Maximum delay between void events |
+| `crowd-awareness.enabled` | `true` | Enable crowd-reactive ambience |
+| `crowd-awareness.min-players` | `3` | Nearby players needed to trigger crowd scaling |
+| `crowd-awareness.radius` | `16.0` | Detection radius in blocks |
 
 ### Storage
 
@@ -268,6 +276,7 @@ Built for production survival servers. Java 21, PaperMC 1.21.4+, Adventure API.
 com.voidmachine
 ├── animation/          StagingGui, CinematicGui, AnimationPipeline, AnimationWatchdog
 │                       AmbientEffectScheduler, StagingGuiListener, CinematicGuiListener
+│                       JackpotVariant
 ├── audit/              AuditLogger
 ├── checkpoint/         CheckpointStore, PendingDeliveryQueue, StartupRecovery
 ├── command/            VoidMachineCommand
@@ -317,6 +326,12 @@ Outcome pre-rolled and stored in `AnimationContext` before the first animation f
 
 **Phase 9 — Sound identity + lifetime statistics**
 Randomized ambient sound pool with pitch variation — idle machines breathe differently each cycle. Rare bass pulse every ~45 s. Rare metallic creak during attract phase. Commit click at the point of no return. TRIPLED resonance aftershock chime at +4 ticks for distinct audio identity. Jackpot dragon growl layered on double-lightning reveal. `GlobalStats` — atomic, YAML-backed lifetime counter store for total sacrifices, per-outcome counts, items consumed, and top offering. `/vm stats` command with `voidmachine.stats` permission — clean admin-facing output, available to any player the operator chooses.
+
+**Phase 10 — Ritual lock system**
+`RitualLockService` + `RitualLockListener` — players are claimed by the Void from START press to animation end. XYZ movement blocked; camera free. Inventory, item drop, and hand swap also blocked. Portal-particle halo around locked players signals to nearby spectators that the ritual is in progress. Bedrock-safe: position redirect via `setTo()` avoids teleport rubber-banding and Geyser desync. Lock released automatically on every exit path — no player can be left permanently locked.
+
+**Phase 11 — v1.1.0-beta atmosphere**
+Four cosmetic systems layered on top of the existing pipeline — atmosphere only, no probability changes. `JackpotVariant` enum (STORM / SILENT / DRAGON / ECHO) pre-rolled per JACKPOT_X5 transaction for four distinct visual/audio sequences. Rare fakeout reveals (~1-in-100 on DOUBLED / TRIPLED / JACKPOT_X5): fake CONSUMED boss bar + smoke → pause → lightning snap → real result; items delivered before any visual plays. Dynamic void events: self-scheduling random surges every 10–45 min on idle machines — stronger particles, dragon ambient resonance, lightning, action-bar message to nearby players. Crowd awareness: nearby-player count cached per machine every 2 s; idle hum and reveal effects amplify when 3+ players are within 16 blocks.
 
 ---
 
