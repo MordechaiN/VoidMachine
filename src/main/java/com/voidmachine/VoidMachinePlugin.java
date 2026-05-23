@@ -31,11 +31,14 @@ import com.voidmachine.integration.DiscordHook;
 import com.voidmachine.interaction.ItemCaptureService;
 import com.voidmachine.interaction.MachineBlockListener;
 import com.voidmachine.interaction.MachineInteractionListener;
+import com.voidmachine.db.GlobalStats;
 import com.voidmachine.machine.MachineDataStore;
 import com.voidmachine.machine.MachineRegistry;
 import com.voidmachine.service.BlacklistService;
 import com.voidmachine.service.CooldownService;
 import com.voidmachine.service.ProcessingService;
+import com.voidmachine.service.RitualLockListener;
+import com.voidmachine.service.RitualLockService;
 import com.voidmachine.service.StatsService;
 import com.voidmachine.transaction.TransactionRegistry;
 import com.voidmachine.util.Effects;
@@ -81,6 +84,8 @@ public final class VoidMachinePlugin extends JavaPlugin {
     private CinematicGui cinematicGui;
     private StagingGui stagingGui;
     private AmbientEffectScheduler ambientEffects;
+    private GlobalStats globalStats;
+    private RitualLockService ritualLockService;
 
     @Override
     public void onLoad() {
@@ -141,6 +146,9 @@ public final class VoidMachinePlugin extends JavaPlugin {
                     }
                 }
             }
+            // Final safety net — guarantees no player is left permanently locked
+            // regardless of which path was taken above.
+            if (ritualLockService != null) ritualLockService.unlockAll();
             if (audit != null) audit.shutdown();
             if (gui != null) gui.shutdown();
             if (processing != null) processing.shutdown();
@@ -192,8 +200,20 @@ public final class VoidMachinePlugin extends JavaPlugin {
         this.cinematicGui = new CinematicGui(this, messages);
         animationPipeline.setCinematicGui(cinematicGui);
 
+        // Global lifetime stats — loaded from disk, updated on each completed transaction.
+        this.globalStats = new GlobalStats(this);
+        animationPipeline.setGlobalStats(globalStats);
+
         // Staging GUI — pre-commit step (opened by MachineInteractionListener on right-click).
         this.stagingGui = new StagingGui(this, messages, captureService);
+
+        // Ritual lock — applied at START commit, released on all exit paths.
+        this.ritualLockService = new RitualLockService(this);
+        stagingGui.setRitualLockService(ritualLockService);
+        animationPipeline.setRitualLockService(ritualLockService);
+        // Wire into captureService so abortTransaction can unlock on any abort path,
+        // including early exits before the AnimationContext is registered.
+        captureService.setRitualLockService(ritualLockService);
 
         // Load machine registrations from disk and populate the registry.
         for (com.voidmachine.machine.MachineBlock m : machineDataStore.load()) {
@@ -216,6 +236,7 @@ public final class VoidMachinePlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(pendingDeliveries, this);
         Bukkit.getPluginManager().registerEvents(new CinematicGuiListener(cinematicGui), this);
         Bukkit.getPluginManager().registerEvents(new StagingGuiListener(stagingGui, this), this);
+        Bukkit.getPluginManager().registerEvents(new RitualLockListener(ritualLockService), this);
         Bukkit.getPluginManager().registerEvents(
                 new PlayerDeathListener(stagingGui, txRegistry, captureService), this);
 
@@ -236,7 +257,7 @@ public final class VoidMachinePlugin extends JavaPlugin {
         PluginCommand command = Objects.requireNonNull(getCommand("voidmachine"),
                 "voidmachine command is missing from plugin.yml");
         VoidMachineCommand executor = new VoidMachineCommand(
-                this, pluginConfig, messages, machineRegistry, machineDataStore);
+                this, pluginConfig, messages, machineRegistry, machineDataStore, globalStats);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
     }
@@ -291,4 +312,6 @@ public final class VoidMachinePlugin extends JavaPlugin {
     public ItemCaptureService captureService()     { return captureService; }
     public AnimationPipeline animationPipeline()   { return animationPipeline; }
     public AmbientEffectScheduler ambientEffects() { return ambientEffects; }
+    public GlobalStats globalStats()               { return globalStats; }
+    public RitualLockService ritualLockService()   { return ritualLockService; }
 }

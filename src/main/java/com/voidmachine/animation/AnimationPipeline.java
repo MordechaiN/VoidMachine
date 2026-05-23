@@ -18,7 +18,9 @@ import com.voidmachine.config.PluginConfig;
 import com.voidmachine.core.Outcome;
 import com.voidmachine.core.OutcomeRoller;
 import com.voidmachine.core.Transaction;
+import com.voidmachine.db.GlobalStats;
 import com.voidmachine.interaction.ItemCaptureService;
+import com.voidmachine.service.RitualLockService;
 import com.voidmachine.machine.MachineBlock;
 import com.voidmachine.machine.MachineRegistry;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -85,6 +87,9 @@ public final class AnimationPipeline {
     private static final String SND_LEVELUP        = "entity.player.levelup";
     private static final String SND_AMETHYST_CHIME = "block.amethyst_block.chime";
     private static final String SND_CHALLENGE_DONE = "ui.toast.challenge_complete";
+    // Jackpot identity — "the void acknowledges the sacrifice".
+    // Played at the second lightning strike (+10 ticks) so it lands with the visual.
+    private static final String SND_DRAGON_GROWL   = "entity.ender_dragon.growl";
 
     private final VoidMachinePlugin plugin;
     private final PluginConfig config;
@@ -106,6 +111,20 @@ public final class AnimationPipeline {
      */
     @Nullable
     private volatile CinematicGui cinematicGui;
+
+    /**
+     * Global lifetime stats — wired after construction via {@link #setGlobalStats}.
+     * Null until bootstrap completes; call site guards with a null-check.
+     */
+    @Nullable
+    private volatile GlobalStats globalStats;
+
+    /**
+     * Ritual lock service — wired after construction via {@link #setRitualLockService}.
+     * Null until bootstrap completes; call sites guard with a null-check.
+     */
+    @Nullable
+    private volatile RitualLockService ritualLockService;
 
     public AnimationPipeline(@NotNull VoidMachinePlugin plugin,
                              @NotNull PluginConfig config,
@@ -131,6 +150,16 @@ public final class AnimationPipeline {
     /** Wire the cinematic GUI after construction (called from bootstrap). */
     public void setCinematicGui(@NotNull CinematicGui gui) {
         this.cinematicGui = gui;
+    }
+
+    /** Wire global stats after construction (called from bootstrap). */
+    public void setGlobalStats(@NotNull GlobalStats stats) {
+        this.globalStats = stats;
+    }
+
+    /** Wire ritual lock service after construction (called from bootstrap). */
+    public void setRitualLockService(@NotNull RitualLockService service) {
+        this.ritualLockService = service;
     }
 
     // =========================================================================
@@ -215,6 +244,13 @@ public final class AnimationPipeline {
         active.put(uuid, ctx);
 
         // ── Open cinematic GUI ────────────────────────────────────────────────
+        // Permit the next InventoryOpenEvent for this player — the ritual lock
+        // blocks all inventory opens, but the CinematicGui open is plugin-initiated
+        // and must be allowed through.  The permit is consumed atomically by
+        // RitualLockListener and is valid for this one open only.
+
+        RitualLockService rl = ritualLockService;
+        if (rl != null) rl.permitNextGuiOpen(uuid);
 
         CinematicGui cg = cinematicGui;
         if (cg != null) cg.open(player, tx, ctx.outcome, ctx.outputAmount);
@@ -243,6 +279,10 @@ public final class AnimationPipeline {
 
         CinematicGui cg = cinematicGui;
         if (cg != null) cg.close(playerUuid);
+
+        // Release ritual lock — animation cancelled, player is free.
+        RitualLockService rl = ritualLockService;
+        if (rl != null) rl.unlock(playerUuid);
     }
 
     /**
@@ -261,6 +301,9 @@ public final class AnimationPipeline {
         active.clear();
         CinematicGui cg = cinematicGui;
         if (cg != null) cg.shutdown();
+        // Unlock all ritual locks — shutdown clears every active animation.
+        RitualLockService rl = ritualLockService;
+        if (rl != null) rl.unlockAll();
     }
 
     /** Returns {@code true} if an animation is currently running for this player. */
@@ -459,6 +502,10 @@ public final class AnimationPipeline {
         audit.logCompleted(uuid, ctx.tx.playerName(), ctx.tx.machineLoc(),
                 itemType, ctx.tx.inputAmount(), outcome, outputAmount);
 
+        // Update global lifetime stats.
+        GlobalStats gs = globalStats;
+        if (gs != null) gs.record(itemType, ctx.tx.inputAmount(), outcome);
+
         logger.info("[AnimationPipeline] " + ctx.tx.playerName() + " → " + outcome.name()
                 + " (in=" + ctx.tx.inputAmount() + " out=" + outputAmount + ')');
 
@@ -592,6 +639,13 @@ public final class AnimationPipeline {
                     world.spawnParticle(Particle.END_ROD, center, 12, 0.3, 0.3, 0.3, 0.03);
                     // World-space sound — nearby players (~32 blocks) hear the surge.
                     world.playSound(center, SND_LEVELUP, 2.0f, 1.3f);
+                    // Resonance aftershock at +4 ticks — deep amethyst chime gives
+                    // TRIPLED a distinct audio identity vs DOUBLED (which stops here).
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                            world.playSound(center, SND_AMETHYST_CHIME, 0.85f, 0.65f);
+                        }
+                    }, 4L);
                 }
             }
             case JACKPOT_X5 -> {
@@ -605,12 +659,16 @@ public final class AnimationPipeline {
                     world.strikeLightningEffect(machLoc);
                     world.playSound(center, SND_CHALLENGE_DONE, 4.0f, 1.0f);
 
-                    // Second strike — +10 ticks. Extra totem burst.
+                    // Second strike — +10 ticks. Extra totem burst + dragon growl.
+                    // Dragon growl lands with the lightning for maximum impact,
+                    // creating a unique audio identity for jackpot vs any other outcome.
                     plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                         if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
                             world.strikeLightningEffect(machLoc);
                             world.spawnParticle(Particle.TOTEM_OF_UNDYING,
                                     center, 30, 0.4, 0.4, 0.4, 0.10);
+                            // "The void acknowledges the sacrifice." Heard ~12 blocks.
+                            world.playSound(center, SND_DRAGON_GROWL, 0.65f, 1.2f);
                         }
                     }, 10L);
 
@@ -654,6 +712,9 @@ public final class AnimationPipeline {
         ctx.display = null;
         CinematicGui cg = cinematicGui;
         if (cg != null) cg.close(uuid);
+        // Release ritual lock — animation complete, player is free.
+        RitualLockService rl = ritualLockService;
+        if (rl != null) rl.unlock(uuid);
     }
 
     // ─── Text / colour helpers ───────────────────────────────────────────────

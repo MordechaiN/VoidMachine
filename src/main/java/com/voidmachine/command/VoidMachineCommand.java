@@ -12,6 +12,7 @@ package com.voidmachine.command;
 import com.voidmachine.VoidMachinePlugin;
 import com.voidmachine.config.MessageManager;
 import com.voidmachine.config.PluginConfig;
+import com.voidmachine.db.GlobalStats;
 import com.voidmachine.machine.MachineBlock;
 import com.voidmachine.machine.MachineDataStore;
 import com.voidmachine.machine.MachineRegistry;
@@ -37,13 +38,15 @@ import java.util.Locale;
  *
  * <h3>Commands</h3>
  * <pre>
- *   /vm admin create &lt;name&gt; [profile]  — register machine at target block
- *   /vm admin remove &lt;name&gt;           — deregister machine
+ *   /vm admin create &lt;name&gt; [profile]  — place machine at target block
+ *   /vm admin remove &lt;name&gt;           — deregister machine and clear the block
  *   /vm admin list                     — list all registered machines
+ *   /vm stats                          — show lifetime server statistics
  *   /vm reload                         — reload config and messages
  * </pre>
  *
- * <p>All admin subcommands require {@code voidmachine.admin} permission.</p>
+ * <p>All admin subcommands require {@code voidmachine.admin} permission.
+ * {@code /vm stats} requires {@code voidmachine.stats} (defaults to all players).</p>
  */
 public final class VoidMachineCommand implements TabExecutor {
 
@@ -52,17 +55,20 @@ public final class VoidMachineCommand implements TabExecutor {
     private final MessageManager messages;
     private final MachineRegistry machineRegistry;
     private final MachineDataStore machineDataStore;
+    private final GlobalStats globalStats;
 
     public VoidMachineCommand(@NotNull VoidMachinePlugin plugin,
                               @NotNull PluginConfig config,
                               @NotNull MessageManager messages,
                               @NotNull MachineRegistry machineRegistry,
-                              @NotNull MachineDataStore machineDataStore) {
-        this.plugin          = plugin;
-        this.config          = config;
-        this.messages        = messages;
-        this.machineRegistry = machineRegistry;
+                              @NotNull MachineDataStore machineDataStore,
+                              @NotNull GlobalStats globalStats) {
+        this.plugin           = plugin;
+        this.config           = config;
+        this.messages         = messages;
+        this.machineRegistry  = machineRegistry;
         this.machineDataStore = machineDataStore;
+        this.globalStats      = globalStats;
     }
 
     // =========================================================================
@@ -75,10 +81,42 @@ public final class VoidMachineCommand implements TabExecutor {
         if (args.length >= 1 && args[0].equalsIgnoreCase("reload")) {
             return cmdReload(sender);
         }
+        if (args.length >= 1 && args[0].equalsIgnoreCase("stats")) {
+            return cmdStats(sender);
+        }
         if (args.length >= 2 && args[0].equalsIgnoreCase("admin")) {
             return cmdAdmin(sender, args);
         }
         sendHelp(sender);
+        return true;
+    }
+
+    // =========================================================================
+    //  /vm stats
+    // =========================================================================
+
+    private boolean cmdStats(@NotNull CommandSender sender) {
+        if (!sender.hasPermission("voidmachine.stats")
+                && !sender.hasPermission("voidmachine.admin")) {
+            sender.sendMessage(messages.render("generic.no-permission"));
+            return true;
+        }
+
+        GlobalStats.Snapshot s = globalStats.snapshot();
+        long total = s.total();
+
+        sender.sendMessage("§8◈ §fVoidMachine §8— §fLifetime Statistics");
+        sender.sendMessage("§8─────────────────────────────");
+        sender.sendMessage("  §7Sacrifices   §f" + fmt(total));
+        sender.sendMessage("§8─────────────────────────────");
+        sender.sendMessage("  §7Destroyed    §c" + fmt(s.destroyed())  + pct(s.destroyed(),  total));
+        sender.sendMessage("  §7Returned     §f" + fmt(s.returned())   + pct(s.returned(),   total));
+        sender.sendMessage("  §7Doubled      §a" + fmt(s.doubled())    + pct(s.doubled(),    total));
+        sender.sendMessage("  §7Tripled      §6" + fmt(s.tripled())    + pct(s.tripled(),    total));
+        sender.sendMessage("  §7Jackpots     §d" + fmt(s.jackpots())   + pct(s.jackpots(),   total));
+        sender.sendMessage("§8─────────────────────────────");
+        sender.sendMessage("  §7Items in     §f" + fmt(s.itemsConsumed()));
+        sender.sendMessage("  §7Top offering §f" + s.topItem());
         return true;
     }
 
@@ -101,6 +139,18 @@ public final class VoidMachineCommand implements TabExecutor {
 
     // ─── /vm admin create <name> [profile] ───────────────────────────────────
 
+    /**
+     * Place a VoidMachine at the targeted block position and register it.
+     *
+     * <h3>Flow</h3>
+     * <ol>
+     *   <li>Admin looks at any solid block within 5 blocks. That block's position
+     *       becomes the RESPAWN_ANCHOR machine.</li>
+     *   <li>Plugin checks the position is not a container and not already registered.</li>
+     *   <li>The target block is replaced with the configured core material.</li>
+     *   <li>Machine is registered and saved.</li>
+     * </ol>
+     */
     private boolean adminCreate(@NotNull CommandSender sender, @NotNull String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("§c[VoidMachine] Must be in-game to place a machine.");
@@ -120,30 +170,47 @@ public final class VoidMachineCommand implements TabExecutor {
             return true;
         }
 
-        // Target block in front of player (up to 5 blocks).
-        Block target = player.getTargetBlockExact(5);
-        if (target == null || target.getType() == Material.AIR) {
-            player.sendMessage("§c[VoidMachine] Look at a block within 5 blocks.");
+        // Check machine cap.
+        if (machineRegistry.size() >= config.machineMaxRegistered()) {
+            player.sendMessage("§c[VoidMachine] Machine cap reached ("
+                    + config.machineMaxRegistered() + "). Remove a machine first.");
             return true;
         }
 
-        // If the block isn't already the configured core type, set it.
-        Material coreType = config.machineCoreBlock();
-        if (target.getType() != coreType) {
-            target.setType(coreType);
+        // The block the admin is looking at becomes the machine core.
+        Block core = player.getTargetBlockExact(5);
+        if (core == null) {
+            player.sendMessage("§c[VoidMachine] Look at a block within 5 blocks.");
+            player.sendMessage("§7Tip: place any block at the desired position, then run this command.");
+            return true;
         }
 
-        MachineBlock machine = new MachineBlock(name, target.getLocation(), profile);
+        // Containers hold items — refuse to overwrite them.
+        if (core.getState() instanceof org.bukkit.block.Container) {
+            player.sendMessage("§c[VoidMachine] Cannot place machine on a container.");
+            return true;
+        }
+
+        // Reject overlap with an existing machine.
+        if (machineRegistry.atLocation(core.getLocation()) != null) {
+            player.sendMessage("§c[VoidMachine] A machine is already registered at this position.");
+            return true;
+        }
+
+        // Place the machine block and register.
+        core.setType(config.machineCoreBlock());
+
+        MachineBlock machine = new MachineBlock(name, core.getLocation(), profile);
         if (!machineRegistry.register(machine)) {
-            player.sendMessage("§c[VoidMachine] Could not register — duplicate location?");
+            player.sendMessage("§c[VoidMachine] Registration failed — check console.");
             return true;
         }
 
         machineDataStore.save(machineRegistry.all());
 
-        player.sendMessage("§a[VoidMachine] Machine '§e" + name + "§a' created at §7"
+        player.sendMessage("§a[VoidMachine] Machine '§e" + name + "§a' placed at §7"
                 + machine.locationKey() + " §a(profile: §e" + profile + "§a).");
-        plugin.getLogger().info("[Admin] " + player.getName() + " created machine '"
+        plugin.getLogger().info("[Admin] " + player.getName() + " placed machine '"
                 + name + "' at " + machine.locationKey() + " profile=" + profile);
         return true;
     }
@@ -151,22 +218,7 @@ public final class VoidMachineCommand implements TabExecutor {
     // ─── /vm admin remove <name> ──────────────────────────────────────────────
 
     /**
-     * Remove a registered machine.
-     *
-     * <p>Order of operations:
-     * <ol>
-     *   <li>Guard: machine must not be locked (active ritual in progress).</li>
-     *   <li>Attempt to clear the physical block in the world (set to AIR).
-     *       Runs synchronously on the main thread — safe for a command context.
-     *       Only clears if the block is still the configured core material;
-     *       if it was already changed externally the block is left as-is.</li>
-     *   <li>Deregister from in-memory registry.</li>
-     *   <li>Persist registry to disk.</li>
-     * </ol>
-     * The machine is deregistered and persisted regardless of whether the
-     * physical block was cleared (the machine becomes inactive immediately).
-     * If the world is unloaded or the chunk cannot be accessed, the admin is
-     * warned so they can manually clean up the block.
+     * Remove a registered machine and restore the core block to AIR.
      */
     private boolean adminRemove(@NotNull CommandSender sender, @NotNull String[] args) {
         if (args.length < 3) {
@@ -185,10 +237,7 @@ public final class VoidMachineCommand implements TabExecutor {
             return true;
         }
 
-        // ── Clear the physical block ──────────────────────────────────────────
-        // Synchronous on main thread. Loads the chunk if needed (brief, acceptable
-        // for a rare admin command). Only removes if block is still the core material —
-        // prevents destroying a block that was manually changed after registration.
+        // Clear the machine block.
         boolean blockCleared = false;
         World world = Bukkit.getWorld(machine.worldName());
         if (world != null) {
@@ -197,21 +246,20 @@ public final class VoidMachineCommand implements TabExecutor {
             if (!world.isChunkLoaded(chunkX, chunkZ)) {
                 world.loadChunk(chunkX, chunkZ);
             }
-            Block block = world.getBlockAt(machine.x(), machine.y(), machine.z());
-            if (block.getType() == config.machineCoreBlock()) {
-                block.setType(Material.AIR);
+            Block core = world.getBlockAt(machine.x(), machine.y(), machine.z());
+            if (core.getType() == config.machineCoreBlock()) {
+                core.setType(Material.AIR);
                 blockCleared = true;
             }
         }
 
-        // ── Deregister and persist ────────────────────────────────────────────
         machineRegistry.deregister(machine);
         machineDataStore.save(machineRegistry.all());
 
         String loc = machine.locationKey();
         if (blockCleared) {
             sender.sendMessage("§a[VoidMachine] Machine '§e" + name
-                    + "§a' removed and block cleared at §7" + loc + "§a.");
+                    + "§a' removed at §7" + loc + "§a.");
         } else {
             sender.sendMessage("§a[VoidMachine] Machine '§e" + name
                     + "§a' removed from registry. §7(Block at " + loc
@@ -257,14 +305,30 @@ public final class VoidMachineCommand implements TabExecutor {
     }
 
     // =========================================================================
+    //  Formatting helpers
+    // =========================================================================
+
+    /** Format a number with thousands separators. */
+    private static String fmt(long n) {
+        return String.format("%,d", n);
+    }
+
+    /** Percentage string, empty when total is zero. */
+    private static String pct(long n, long total) {
+        if (total == 0) return "";
+        return " §8(" + String.format("%.1f%%", (double) n / total * 100) + "§8)";
+    }
+
+    // =========================================================================
     //  Help text
     // =========================================================================
 
     private void sendHelp(@NotNull CommandSender sender) {
         sender.sendMessage("§7[VoidMachine] Commands:");
-        sender.sendMessage("  §e/vm admin create <name> [profile] §8— register machine at looked-at block");
-        sender.sendMessage("  §e/vm admin remove <name> §8— remove machine");
+        sender.sendMessage("  §e/vm admin create <name> [profile] §8— place machine at target block");
+        sender.sendMessage("  §e/vm admin remove <name> §8— remove machine and clear the block");
         sender.sendMessage("  §e/vm admin list §8— list all registered machines");
+        sender.sendMessage("  §e/vm stats §8— show lifetime server statistics");
         sender.sendMessage("  §e/vm reload §8— reload config and messages");
     }
 
@@ -282,11 +346,20 @@ public final class VoidMachineCommand implements TabExecutor {
     @Override
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                        @NotNull String alias, @NotNull String[] args) {
+        if (args.length == 1) {
+            List<String> base = new ArrayList<>();
+            if (sender.hasPermission("voidmachine.admin")) {
+                base.add("admin");
+                base.add("reload");
+            }
+            if (sender.hasPermission("voidmachine.stats")
+                    || sender.hasPermission("voidmachine.admin")) {
+                base.add("stats");
+            }
+            return filterPrefix(base, args[0]);
+        }
         if (!sender.hasPermission("voidmachine.admin")) return List.of();
 
-        if (args.length == 1) {
-            return filterPrefix(List.of("admin", "reload"), args[0]);
-        }
         if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
             return filterPrefix(List.of("create", "remove", "list"), args[1]);
         }

@@ -98,6 +98,7 @@ Full ritual experience — boss bar, inventory GUI, particles — on Java and Be
 - ⚙️ **Named outcome profiles** — different risk curves per machine (`default`, `brutal`, `unstable`)
 - ⏱️ **Cooldowns + daily limits** — per-player and global
 - 🛡️ **Explosion, piston, and liquid protection** — machine blocks are indestructible through gameplay
+- 🔐 **Ritual lock** — after pressing START, the player is claimed by the Void. Positional movement blocks; camera stays free. Inventory, drop, and hand-swap blocked too. Releases automatically on all exit paths — no player can be left permanently locked.
 - 💀 **Death-safe** — dying during staging injects the item into death drops. No silent loss.
 - 🎮 **Bedrock / controller / touch first** — designed for lowest-precision input. No shift-click, no keyboard shortcuts, no Java-specific habits required.
 
@@ -109,15 +110,14 @@ Full ritual experience — boss bar, inventory GUI, particles — on Java and Be
 
 1. Drop `VoidMachine-x.x.x.jar` into `plugins/`
 2. Start the server
-3. Look at the block you want to use as the machine, then run:
+3. Place any block where you want the machine, look at it, and run:
    ```
    /vm admin create <name> [profile]
    ```
-4. Right-click that block to open the ritual
+   The targeted block becomes a RESPAWN_ANCHOR. That block **is** the machine.
+4. Right-click the RESPAWN_ANCHOR to open the ritual
 
 That's it. Config and messages generate automatically on first start.
-
-> Default machine block: `RESPAWN_ANCHOR` — configurable via `machine.core-material` in `config.yml`.
 
 ---
 
@@ -129,6 +129,7 @@ That's it. Config and messages generate automatically on first start.
 | `/vm admin remove <name>` | `voidmachine.admin` | Remove machine and restore the block to AIR |
 | `/vm admin list` | `voidmachine.admin` | List all registered machines with locations and profiles |
 | `/vm reload` | `voidmachine.admin` | Reload `config.yml` and `messages.yml` without restart |
+| `/vm stats` | `voidmachine.stats` | Show lifetime server statistics — sacrifices, outcomes, items consumed, top offering |
 
 > Machines are **indestructible** through normal gameplay. Remove only via `/vm admin remove`.
 
@@ -233,6 +234,7 @@ Players must never lose items to a bug.
 | Concurrent machine access | `AtomicBoolean.compareAndSet` — one ritual per machine at a time. |
 | Chunk unload during transaction | Force-abort detects unload, returns item. |
 | Machine block destroyed | Immune to player break, explosions, pistons, liquid flow. |
+| Walk-away mid-animation | Ritual lock blocks XYZ movement from START press to animation end. Camera free. |
 | Stack over-consumption | Clamping at START press — excess returned before WAL is written. |
 | Double-roll on reconnect | Outcome rolled once at animation start. No re-roll possible. |
 | Shulker boxes / container NBT | Blocked via `BlacklistService`. |
@@ -267,13 +269,14 @@ com.voidmachine
 ├── command/            VoidMachineCommand
 ├── config/             PluginConfig, MessageManager
 ├── core/               Outcome, OutcomeRoller, Transaction
-├── db/                 DatabaseManager, Storage, YamlStorage, SqlStorage
+├── db/                 DatabaseManager, GlobalStats, Storage, YamlStorage, SqlStorage
 ├── gui/                GuiManager (legacy player-GUI path)
 ├── integration/        DiscordHook
 ├── interaction/        ItemCaptureService, MachineInteractionListener
 │                       MachineBlockListener, PlayerDeathListener
 ├── machine/            MachineBlock, MachineRegistry, MachineDataStore
 ├── service/            BlacklistService, CooldownService, ProcessingService, StatsService
+│                       RitualLockService, RitualLockListener
 ├── transaction/        TransactionRegistry
 └── util/               Effects, ItemValidator
 ```
@@ -308,13 +311,16 @@ Outcome pre-rolled and stored in `AnimationContext` before the first animation f
 **Phase 8 — Atmosphere + GUI redesign**
 `AmbientEffectScheduler`: idle portal smoke, soul-fire flicker, ambient hum, 30-second attract flash — all idle machines feel alive. Social visibility: world-space sounds during ramp, tension, and reveal so nearby spectators hear the ritual. Jackpot enhanced to triple lightning + 64-block world sound. `StagingGui` rebuilt as a clean 3-row layout (5-row removed) — single open input slot, glowing START button, column-aligned header → input → confirm. `CinematicGui` rewritten as a ritual chamber: all reel machinery removed, single bold status pane with colour-coded reveal. Designed for Bedrock, controller, touch, and mobile first.
 
+**Phase 9 — Sound identity + lifetime statistics**
+Randomized ambient sound pool with pitch variation — idle machines breathe differently each cycle. Rare bass pulse every ~45 s. Rare metallic creak during attract phase. Commit click at the point of no return. TRIPLED resonance aftershock chime at +4 ticks for distinct audio identity. Jackpot dragon growl layered on double-lightning reveal. `GlobalStats` — atomic, YAML-backed lifetime counter store for total sacrifices, per-outcome counts, items consumed, and top offering. `/vm stats` command with `voidmachine.stats` permission — clean admin-facing output, available to any player the operator chooses.
+
 ---
 
 ## 🗺️ Roadmap
 
 ### Near-term
-- [ ] **Multiblock structure validation** — crying obsidian frame requirement (config-optional)
-- [ ] **Sound polish** — custom sounds per phase and per outcome
+- [x] **Sound identity** — randomized ambient pool, commit click, TRIPLED aftershock, jackpot dragon growl
+- [x] **Lifetime statistics** — `/vm stats` with per-outcome counts, items consumed, top offering
 - [ ] **Reward-rate balancing** — per-item-type weight overrides
 
 ### Medium-term

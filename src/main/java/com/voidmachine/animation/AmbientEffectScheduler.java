@@ -20,6 +20,8 @@ import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * Drives idle ambient effects and attract-mode pulses for all registered
  * VoidMachine blocks.
@@ -61,16 +63,29 @@ public final class AmbientEffectScheduler {
 
     // ── Schedule constants ────────────────────────────────────────────────────
     // Scheduler fires every TICK_PERIOD ticks. Effect periods are in "fires", so:
-    //   FIRE_PERIOD_HUM    = 3  →  3 × 20 =  60 ticks = 3 s
+    //   FIRE_PERIOD_HUM    = 3  →  3 × 20 =  60 ticks =  3 s
+    //   FIRE_PERIOD_RARE   = 45 → 45 × 20 = 900 ticks = 45 s
     //   FIRE_PERIOD_ATTRACT = 30 → 30 × 20 = 600 ticks = 30 s
 
     private static final long TICK_PERIOD         = 20L; // period of the repeating task
     private static final int  FIRE_PERIOD_HUM     = 3;   // fires between hum/soul-fire
+    private static final int  FIRE_PERIOD_RARE    = 45;  // fires between deep bass pulses
     private static final int  FIRE_PERIOD_ATTRACT = 30;  // fires between attract pulses
 
     // ── Sounds (world-space, String keys — forward-compatible with Paper 1.21+) ─
+    //
+    // Ambient pool (all five moods rotate randomly):
+    //   SND_HUM     — baseline void hum     (70% of hum-cycle fires)
+    //   SND_PORTAL  — portal resonance echo  (20% of hum-cycle fires)
+    //   SND_WHISPER — enderman ambient       (10% of hum-cycle fires — "rare whispers")
+    //   SND_BASS    — deep bass pulse        (every FIRE_PERIOD_RARE = 45 s)
+    //   SND_CREAK   — metallic creak         (1-in-7 attract fires)
     private static final String SND_HUM     = "block.respawn_anchor.ambient";
     private static final String SND_ATTRACT = "block.amethyst_block.chime";
+    private static final String SND_PORTAL  = "block.portal.ambient";
+    private static final String SND_BASS    = "block.beacon.power_select";
+    private static final String SND_WHISPER = "entity.enderman.ambient";
+    private static final String SND_CREAK   = "block.iron_door.open";
 
     // ── Particle counts — keep minimal for Bedrock and high-machine-count servers ─
     private static final int  P_SMOKE_COUNT   = 2;
@@ -164,7 +179,10 @@ public final class AmbientEffectScheduler {
                     P_SMOKE_COUNT, 0.30, 0.25, 0.30, 0.04);
         }
 
-        // ── Soul-fire accent + hum (every 3 s) ────────────────────────────────
+        // ── Soul-fire accent + ambient sound (every 3 s) ──────────────────────
+        // Sound variant and pitch are randomised each cycle so the machine never
+        // feels like a mechanical loop. Players notice variation subconsciously —
+        // makes the machine feel alive rather than scripted.
         if (adjFire % FIRE_PERIOD_HUM == 0) {
             if (config.particlesEnabled()) {
                 // Single soul-fire flame drifting upward — dark-blue accent light.
@@ -172,13 +190,32 @@ public final class AmbientEffectScheduler {
                         center.clone().add(0, 0.35, 0),
                         P_SOUL_COUNT, 0.12, 0.08, 0.12, 0.0);
             }
-            // Ambient hum — volume 0.25 → heard ≈ 4 blocks. Barely audible;
-            // creates a subsonic "presence" rather than an obvious sound.
-            world.playSound(center, SND_HUM, 0.25f, 0.50f);
+            // Randomised ambient pool:
+            //   70% — baseline void hum      (heard ≈ 4 blocks)
+            //   20% — portal resonance echo  (heard ≈ 2-3 blocks, quieter)
+            //   10% — enderman ambient       (heard ≈ 1-2 blocks — "rare whisper")
+            float pitch = 0.44f + ThreadLocalRandom.current().nextFloat() * 0.14f; // 0.44–0.58
+            int roll = ThreadLocalRandom.current().nextInt(10);
+            if (roll < 7) {
+                world.playSound(center, SND_HUM, 0.25f, pitch);
+            } else if (roll < 9) {
+                world.playSound(center, SND_PORTAL, 0.14f, Math.max(0.38f, pitch - 0.06f));
+            } else {
+                // Barely audible at close range — a distant, spectral presence.
+                world.playSound(center, SND_WHISPER, 0.09f, 0.55f);
+            }
+        }
+
+        // ── Deep bass pulse (every 45 s) ───────────────────────────────────────
+        // Low pitch (0.30) produces a subsonic-feeling thud — players feel more
+        // than hear it. Creates the impression of something massive breathing nearby.
+        if (adjFire % FIRE_PERIOD_RARE == 0) {
+            world.playSound(center, SND_BASS, 0.28f, 0.30f);
         }
 
         // ── Attract flash (every 30 s) ─────────────────────────────────────────
         // Goal: a brief, eye-catching flicker that makes a passing player turn around.
+        // Sound alternates between amethyst chime (6/7) and metallic creak (1/7).
         // "Was that something over there?"
         if (adjFire % FIRE_PERIOD_ATTRACT == 0) {
             if (config.particlesEnabled()) {
@@ -186,9 +223,14 @@ public final class AmbientEffectScheduler {
                         center.clone().add(0, 0.25, 0),
                         P_ATTRACT_COUNT, 0.25, 0.20, 0.25, 0.03);
             }
-            // Amethyst chime — volume 0.4 → heard ≈ 6 blocks. Distinct enough to
-            // notice, quiet enough not to be annoying at distance.
-            world.playSound(center, SND_ATTRACT, 0.40f, 0.70f);
+            if (ThreadLocalRandom.current().nextInt(7) == 0) {
+                // Metallic creak — iron door at low pitch. "Something just shifted."
+                // Heard ≈ 3 blocks; unsettling without being alarming.
+                world.playSound(center, SND_CREAK, 0.18f, 0.42f);
+            } else {
+                // Amethyst chime — heard ≈ 6 blocks. Distinct, attention-catching.
+                world.playSound(center, SND_ATTRACT, 0.40f, 0.70f);
+            }
         }
     }
 }

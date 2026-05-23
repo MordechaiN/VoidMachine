@@ -14,6 +14,7 @@ import com.voidmachine.config.MessageManager;
 import com.voidmachine.config.PluginConfig;
 import com.voidmachine.interaction.ItemCaptureService;
 import com.voidmachine.machine.MachineBlock;
+import com.voidmachine.service.RitualLockService;
 import com.voidmachine.util.ItemValidator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -105,6 +106,14 @@ public final class StagingGui {
     private final PluginConfig      config;
     private final ItemCaptureService captureService;
 
+    /**
+     * Wired after construction via {@link #setRitualLockService}.
+     * Applied at the point-of-no-return in {@link #triggerStart}; released on
+     * capture failure, animation complete, abort, or shutdown.
+     */
+    @Nullable
+    private volatile RitualLockService ritualLockService;
+
     /** Active sessions keyed by player UUID. */
     private final ConcurrentHashMap<UUID, StagingSession> sessions = new ConcurrentHashMap<>();
 
@@ -126,6 +135,11 @@ public final class StagingGui {
         this.messages       = messages;
         this.config         = plugin.pluginConfig();
         this.captureService = captureService;
+    }
+
+    /** Wire the ritual lock service after construction (called from bootstrap). */
+    public void setRitualLockService(@NotNull RitualLockService service) {
+        this.ritualLockService = service;
     }
 
     // =========================================================================
@@ -216,8 +230,18 @@ public final class StagingGui {
             sacrifice = input.clone();
         }
 
-        // ── Lock GUI visually ─────────────────────────────────────────────────
+        // ── Commit — point of no return ───────────────────────────────────────
+        // Heavy anvil click: deliberate, weighty, irreversible.
+        // Natural silence follows before AnimationPipeline plays the ramp charge.
+        player.playSound(player.getLocation(), "block.anvil.use", 0.7f, 0.55f);
+
         session.committed = true;
+
+        // Lock player movement immediately — the Void claims them.
+        // Released on animation complete, abort, capture failure (below), or shutdown.
+        RitualLockService rls = ritualLockService;
+        if (rls != null) rls.lock(player);
+
         session.inv.setItem(SLOT_INPUT,  buildProcessingPane());
         session.inv.setItem(SLOT_START,  buildStartButton(false));
         session.inv.setItem(SLOT_HEADER, buildProcessingHeader());
@@ -240,6 +264,8 @@ public final class StagingGui {
         // removed (containsKey returns false). If still present, capture failed.
         if (sessions.containsKey(uuid)) {
             session.committed = false;
+            // Release lock — capture failed, ritual did not start.
+            if (rls != null) rls.unlock(uuid);
             session.inv.setItem(SLOT_INPUT,  sacrifice);
             session.inv.setItem(SLOT_START,  buildStartButton(true));
             session.inv.setItem(SLOT_HEADER, buildHeaderItem(true));

@@ -13,6 +13,7 @@ import com.voidmachine.config.PluginConfig;
 import com.voidmachine.machine.MachineBlock;
 import com.voidmachine.machine.MachineRegistry;
 import com.voidmachine.transaction.TransactionRegistry;
+import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -27,28 +28,27 @@ import org.bukkit.event.world.ChunkUnloadEvent;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
- * Protects registered machine blocks from ALL forms of destruction and aborts
- * active transactions when a machine's chunk is unloaded.
+ * Protects the registered VoidMachine core block from all forms of destruction
+ * and aborts active transactions when a machine's chunk is unloaded.
  *
- * <h3>Machine block protection</h3>
- * Registered machine blocks are <strong>indestructible</strong> through normal gameplay:
+ * <h3>What is protected</h3>
+ * The single RESPAWN_ANCHOR core block registered as the machine.
+ * No multiblock structure — the machine is a single iconic block.
+ *
+ * <h3>Protection mechanisms</h3>
  * <ul>
  *   <li>Player break (survival &amp; creative) — always cancelled.</li>
  *   <li>Entity explosions (creeper, TNT, etc.) — block removed from explosion list.</li>
  *   <li>Block explosions (primed TNT) — same.</li>
- *   <li>Piston push/pull — event cancelled if machine block is in the move list.</li>
- *   <li>Liquid flow — event cancelled if the destination block is a machine.</li>
+ *   <li>Piston push/pull — event cancelled if the core block is in the move list.</li>
+ *   <li>Liquid flow — event cancelled if the destination is the core block.</li>
  * </ul>
  * Machines may <strong>only</strong> be removed via {@code /vm admin remove <name>}.
- *
- * <h3>Chunk unload abort</h3>
- * If the chunk containing a locked machine is unloaded while a transaction is active,
- * the transaction is force-aborted. This prevents a machine lock being held indefinitely
- * on an unloaded chunk.
  */
 public final class MachineBlockListener implements Listener {
 
@@ -81,15 +81,13 @@ public final class MachineBlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockBreak(@NotNull BlockBreakEvent event) {
         Block block = event.getBlock();
-        if (block.getType() != config.machineCoreBlock()) return;
+        if (!isMachineBlock(block)) return;
 
         MachineBlock machine = machineRegistry.atLocation(block.getLocation());
-        if (machine == null) return; // unregistered core block — allow break
-
         event.setCancelled(true);
         event.getPlayer().sendMessage(
-                "§7[VoidMachine] §cThis is a registered machine. "
-                + "Use §e/vm admin remove " + machine.name() + "§c to remove it.");
+                "§7[VoidMachine] §cThis is a registered machine. Use §e/vm admin remove "
+                + machine.name() + " §cto remove it.");
     }
 
     // ── Piston protection ─────────────────────────────────────────────────────
@@ -97,7 +95,7 @@ public final class MachineBlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPistonExtend(@NotNull BlockPistonExtendEvent event) {
         for (Block block : event.getBlocks()) {
-            if (machineRegistry.atLocation(block.getLocation()) != null) {
+            if (isMachineBlock(block)) {
                 event.setCancelled(true);
                 return;
             }
@@ -107,7 +105,7 @@ public final class MachineBlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPistonRetract(@NotNull BlockPistonRetractEvent event) {
         for (Block block : event.getBlocks()) {
-            if (machineRegistry.atLocation(block.getLocation()) != null) {
+            if (isMachineBlock(block)) {
                 event.setCancelled(true);
                 return;
             }
@@ -119,8 +117,7 @@ public final class MachineBlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockFromTo(@NotNull BlockFromToEvent event) {
         Block to = event.getToBlock();
-        if (to.getType() != config.machineCoreBlock()) return;
-        if (machineRegistry.atLocation(to.getLocation()) != null) {
+        if (isMachineBlock(to)) {
             event.setCancelled(true);
         }
     }
@@ -145,7 +142,6 @@ public final class MachineBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkUnload(@NotNull ChunkUnloadEvent event) {
-        // Iterate all active transactions; abort any whose machine is in this chunk.
         for (UUID playerUuid : txRegistry.snapshot().stream()
                 .map(tx -> tx.playerId())
                 .toList()) {
@@ -156,8 +152,6 @@ public final class MachineBlockListener implements Listener {
             MachineBlock machine = machineRegistry.atKey(tx.machineLoc());
             if (machine == null) continue;
 
-            // Compare chunk coords without calling Location.getChunk()
-            // (which may load the chunk — unsafe during ChunkUnloadEvent).
             int machChunkX = machine.x() >> 4;
             int machChunkZ = machine.z() >> 4;
             boolean sameWorld = machine.worldName().equals(
@@ -180,18 +174,22 @@ public final class MachineBlockListener implements Listener {
     // =========================================================================
 
     /**
-     * Remove any registered machine core blocks from an explosion block list.
-     * Silently prevents machines from being destroyed by explosions.
+     * Remove registered machine blocks from an explosion block list.
      */
-    private void removeRegisteredBlocks(@NotNull java.util.List<Block> blockList) {
+    private void removeRegisteredBlocks(@NotNull List<Block> blockList) {
         if (blockList.isEmpty()) return;
         Iterator<Block> it = blockList.iterator();
         while (it.hasNext()) {
-            Block block = it.next();
-            if (block.getType() != config.machineCoreBlock()) continue;
-            if (machineRegistry.atLocation(block.getLocation()) != null) {
-                it.remove();
-            }
+            if (isMachineBlock(it.next())) it.remove();
         }
+    }
+
+    /**
+     * Returns {@code true} if this block is a registered machine core block.
+     * Type check first (fast path), then registry lookup.
+     */
+    private boolean isMachineBlock(@NotNull Block block) {
+        if (block.getType() != config.machineCoreBlock()) return false;
+        return machineRegistry.atLocation(block.getLocation()) != null;
     }
 }

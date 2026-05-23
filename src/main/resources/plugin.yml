@@ -28,7 +28,7 @@ softdepend:
 commands:
   voidmachine:
     description: Main VoidMachine command.
-    usage: /voidmachine <open|stats|history|top|reload|help>
+    usage: /voidmachine <admin|stats|reload>
     aliases: [vm, void]
     permission: voidmachine.use
 
@@ -49,7 +49,7 @@ permissions:
     description: Open and use the Void Machine.
     default: true
   voidmachine.stats:
-    description: View your own statistics.
+    description: View server lifetime sacrifice statistics.
     default: true
   voidmachine.history:
     description: View recent machine history.

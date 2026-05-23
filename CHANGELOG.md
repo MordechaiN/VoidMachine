@@ -7,6 +7,175 @@ Format: [version] — date, then Added / Changed / Fixed / Security sections.
 
 ## [Unreleased]
 
+### Changed
+- **Reverted to single-block machine architecture** — multiblock experiment removed entirely.
+
+  The multiblock structure (Chain → Crying Obsidian × 2 → Respawn Anchor → Soul Lanterns × 2 →
+  Hopper) was explored and proved the wrong direction. Specific problems encountered:
+
+  - Structure cluttered the visual silhouette and reduced iconic clarity
+  - Multiple block types created maintenance complexity (pistons, physics, grief vectors)
+  - Auto-build tooling added admin surface area with no player-facing benefit
+  - The original single-block machine had **stronger identity** — a lone glowing anchor
+    in a dark room reads immediately as "dangerous, interactive, powerful"
+
+  The Respawn Anchor is the machine. Nothing else. Clean, iconic, stable.
+
+  **Removed:** `StructureValidator.java` (deleted), `byStructureKey` registry index,
+  `registerStructureKeys` / `deregisterStructureKeys` / `atStructureKey` registry methods,
+  `requireStructure()` config getter, `machine.require-structure` config key,
+  all structure block protection logic from `MachineBlockListener`, structure placement
+  and space-checking from `VoidMachineCommand.adminCreate`, structure clearing from
+  `VoidMachineCommand.adminRemove`.
+
+  **Retained:** All sound polish, ambient effects, cinematic GUI, transaction safety,
+  WAL/checkpoint system, Bedrock compatibility work — all intact and unchanged.
+
+- **`/vm admin create` simplified** — admin looks at a block within 5 blocks, runs
+  `/vm admin create <name> [profile]`. Plugin replaces that block with the configured
+  core material and registers. No structure building, no space checking, no orientation.
+  The command now does exactly what the name says: create a machine at a position.
+
+- **`/vm admin remove` simplified** — clears the single anchor block and deregisters.
+  No multi-block teardown.
+
+### Added
+- **Ritual lock state** — players become temporarily claimed by the Void the instant
+  they press START.  Positional movement (XYZ) is blocked; camera rotation remains
+  free so the player feels captured, not frozen.  Also blocked while locked:
+  inventory open, inventory click, item drop (Q), and hand swap (F).
+
+  Lock is applied in `StagingGui.triggerStart` at the point-of-no-return and
+  guaranteed to release on every exit path — animation complete, abort, capture
+  failure (same tick), disconnect, death, shutdown, or crash recovery.  No player
+  can be left permanently locked.
+
+  Implementation is Bedrock-safe: `PlayerMoveEvent.setTo(corrected)` redirects the
+  destination to the origin (with yaw/pitch preserved) rather than teleporting the
+  player.  No rubber-banding, no Geyser desync, no jitter.
+
+- **`RitualLockService`** (`com.voidmachine.service.RitualLockService`) — tracks
+  locked players, manages per-player portal-particle halos (5 particles at chest
+  level, every 10 ticks while locked), exposes thread-safe `isLocked(UUID)`.
+
+- **`RitualLockListener`** (`com.voidmachine.service.RitualLockListener`) — Bukkit
+  listener enforcing the lock via `PlayerMoveEvent` (set-to correction),
+  `InventoryOpenEvent`, `InventoryClickEvent`, `PlayerDropItemEvent`, and
+  `PlayerSwapHandItemsEvent`.  All handlers at `HIGH` priority; no gameplay
+  systems modified, WAL/checkpoint/rollback order unchanged.
+
+- **Ritual halo particles** — faint portal-particle orbit around locked players
+  gives nearby spectators a visual signal that the ritual is in progress.  No
+  blindness, nausea, or slowness potion effects.
+
+- **`/vm stats`** — server-wide lifetime statistics command. Output:
+
+  ```
+  ◈ VoidMachine — Lifetime Statistics
+  ─────────────────────────────
+    Sacrifices   1,247
+  ─────────────────────────────
+    Destroyed      899  (72.1%)
+    Returned       225  (18.0%)
+    Doubled         87  ( 7.0%)
+    Tripled         25  ( 2.0%)
+    Jackpots        11  ( 0.9%)
+  ─────────────────────────────
+    Items in     4,891
+    Top offering minecraft:diamond ×340
+  ```
+
+  Requires `voidmachine.stats` permission (or `voidmachine.admin`). Persisted to
+  `plugins/VoidMachine/global_stats.yml` — survives restarts. Counters updated
+  asynchronously after each completed transaction; safe to read from any thread.
+
+- **`GlobalStats`** (`com.voidmachine.db.GlobalStats`) — atomic lifetime counter store:
+  total sacrifices, per-outcome counts, total items consumed, per-material item counts
+  (for most-offered detection). Backed by `global_stats.yml`, loaded on startup, saved
+  async after each transaction. Wired into `AnimationPipeline` via `setGlobalStats`.
+
+- **`voidmachine.stats` permission** — allows players to view `/vm stats` without
+  full admin access. Useful for trusted members who want to see server progress.
+
+### Changed
+- **Sound polish pass** — psychological ambient design for idle machines and the ritual:
+  - **Randomised ambient pool** (`AmbientEffectScheduler`): each 3-second hum cycle now
+    draws from three sounds instead of one fixed hum — 70% void hum
+    (`block.respawn_anchor.ambient`), 20% portal resonance echo (`block.portal.ambient`),
+    10% enderman ambient whisper (`entity.enderman.ambient` at v=0.09 — barely audible).
+    Pitch varies ±0.07 each fire so the machine never sounds mechanical.
+  - **Deep bass pulse** (every 45 s): `block.beacon.power_select` at pitch 0.30 — a
+    subsonic thud that players feel more than hear. Heard ≈ 5 blocks.
+  - **Metallic creak** (1-in-7 attract fires): attract-mode sound alternates between the
+    amethyst chime (6/7) and an iron-door creak at pitch 0.42 (1/7) — "something shifted."
+  - **START commit click** (`StagingGui.triggerStart`): `block.anvil.use` at v=0.7, p=0.55
+    fires at the exact moment the player clicks START — heavy, deliberate, irreversible.
+    Natural silence follows (GUI close gap) before the ramp charge (`block.respawn_anchor.charge`)
+    plays in `AnimationPipeline`. Sequence: *click → silence → charge → portal builds → hum → reveal.*
+  - **TRIPLED resonance aftershock**: deep amethyst chime (p=0.65) plays at +4 ticks after
+    the level-up reveal — gives TRIPLED a distinct audio tail vs DOUBLED (which ends at the
+    level-up). Players can hear the difference without reading text.
+  - **Jackpot dragon growl** (`AnimationPipeline`, JACKPOT_X5): `entity.ender_dragon.growl`
+    at v=0.65, p=1.2 plays at the second lightning strike (+10 ticks). Lands simultaneously
+    with the visual flash — "the void acknowledges the sacrifice." Heard ≈ 12 blocks. Gives
+    jackpot a unique audio identity no other outcome has.
+
+### Changed
+- **`/vm admin create` now auto-builds the full structure** — admin UX redesigned:
+  - Admin places any marker block at the desired anchor position, looks at it, runs
+    `/vm admin create <name>`. The plugin places all 7 structure blocks automatically.
+  - Soul lanterns orient to the admin's facing direction (E/W when facing N/S,
+    N/S when facing E/W) so the machine reads naturally from any approach angle.
+  - If any of the 6 surrounding positions is occupied, the command fails with a
+    per-position list: `"1 above (CRYING_OBSIDIAN): STONE at 100,65,-200"`.
+  - Containers at the core position are explicitly rejected (item-loss protection).
+  - Positions that overlap an existing machine structure are rejected.
+  - Admin NEVER needs to memorise or manually build the block layout.
+  - New `StructureValidator` methods: `lanternsOnXAxis(Player)`,
+    `blockedPositions(Block, boolean)`, `placeStructure(Block, Material, boolean)`.
+  - `VoidMachineCommand.adminCreate` Javadoc updated with the new flow.
+  - `config.yml` `machine.require-structure` comment updated to reflect auto-build.
+  - README Installation section updated (5-step flow, no manual building).
+
+### Added
+- **Multiblock machine structure** (`StructureValidator`):
+  - Machines now require a 7-block physical structure to register (config-optional).
+  - Required layout (admin looks at the RESPAWN_ANCHOR core):
+    ```
+              [CHAIN]
+        [CRYING_OBSIDIAN]
+    [SOUL_LANTERN] [RESPAWN_ANCHOR] [SOUL_LANTERN]
+        [CRYING_OBSIDIAN]
+              [HOPPER]
+    ```
+    Soul lanterns may be placed on either the east/west or north/south axis.
+  - **`/vm admin create`** validates the complete structure before registering.
+    Clear per-block error feedback: `"Missing CHAIN 2 blocks above the core."` etc.
+    When validation fails, the structure diagram is shown in chat.
+  - **All 7 structure blocks are indestructible** while the machine is registered —
+    player break, explosions, piston push/pull, and liquid flow are all blocked.
+    The block listener now covers the entire structure, not just the core.
+  - **`/vm admin remove`** clears all 7 structure blocks and restores them to AIR
+    (each block only if it still holds the expected material, so externally-changed
+    blocks are never silently destroyed). All structure protection keys are
+    deregistered before clearing.
+  - `machine.require-structure: true` in `config.yml` (default `true`). Set to
+    `false` to revert to single standalone-block behaviour with no structure check.
+  - New class `com.voidmachine.machine.StructureValidator` — stateless utility:
+    `validate(Block core)` → `Result` enum with per-failure admin message;
+    `allStructureKeys(Block)` / `allStructureKeys(worldName, x, y, z)` → 9-key
+    list (5 vertical + 4 horizontal potential lantern positions);
+    `horizontalNeighbors(Block)` for cleanup; `isStructureMaterial(Material)` for
+    fast listener pre-filter; `STRUCTURE_MATERIALS` constant set.
+  - `MachineRegistry` extended: `byStructureKey` ConcurrentHashMap;
+    `registerStructureKeys()` / `deregisterStructureKeys()` / `atStructureKey()`.
+  - `MachineBlockListener` rewritten to use `atStructureKey` for all protection;
+    material pre-filter via `StructureValidator.isStructureMaterial` replaces the
+    single `config.machineCoreBlock()` check. Player break feedback distinguishes
+    core break (`"use /vm admin remove"`) from structure block break
+    (`"this block is part of a registered machine structure"`).
+  - `VoidMachinePlugin.bootstrap()` registers structure keys for each loaded machine.
+
 ### Removed
 - **`ReelSymbol.java` deleted** — orphaned after CinematicGui reel-removal rewrite.
   Zero remaining references confirmed.

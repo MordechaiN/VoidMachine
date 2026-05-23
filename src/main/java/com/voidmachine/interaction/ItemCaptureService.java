@@ -92,6 +92,17 @@ public final class ItemCaptureService {
     @Nullable
     private volatile com.voidmachine.animation.AnimationPipeline animationPipeline;
 
+    /**
+     * Set by {@link #setRitualLockService} in Phase 5 bootstrap.
+     * {@link #abortTransaction} calls {@link com.voidmachine.service.RitualLockService#unlock}
+     * as a final step to guarantee no player is left locked regardless of which abort
+     * path is taken — including early-exit aborts in
+     * {@link com.voidmachine.animation.AnimationPipeline#start} that fire before the
+     * {@code AnimationContext} is added to the active map.
+     */
+    @Nullable
+    private volatile com.voidmachine.service.RitualLockService ritualLockService;
+
     public ItemCaptureService(@NotNull VoidMachinePlugin plugin,
                               @NotNull PluginConfig config,
                               @NotNull CheckpointStore checkpoints,
@@ -142,6 +153,18 @@ public final class ItemCaptureService {
     public void setAnimationPipeline(
             @NotNull com.voidmachine.animation.AnimationPipeline pipeline) {
         this.animationPipeline = pipeline;
+    }
+
+    /**
+     * Register the ritual lock service so that {@link #abortTransaction} can
+     * release the lock on any abort path, including early exits before the
+     * animation context is registered.
+     * Call from bootstrap after {@link com.voidmachine.service.RitualLockService}
+     * is constructed.
+     */
+    public void setRitualLockService(
+            @NotNull com.voidmachine.service.RitualLockService service) {
+        this.ritualLockService = service;
     }
 
     /**
@@ -436,6 +459,13 @@ public final class ItemCaptureService {
 
         // Delete checkpoint.
         checkpoints.deleteAsync(playerUuid);
+
+        // Release ritual lock — covers all abort paths, including early exits in
+        // AnimationPipeline.start() that fire before the AnimationContext is registered
+        // (in which case cancelForPlayer above would have been a no-op).
+        // Double-unlock is safe: unlock() is idempotent.
+        com.voidmachine.service.RitualLockService rl = ritualLockService;
+        if (rl != null) rl.unlock(playerUuid);
     }
 
     /**
