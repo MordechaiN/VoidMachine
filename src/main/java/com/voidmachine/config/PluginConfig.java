@@ -430,4 +430,64 @@ public final class PluginConfig {
     public double worldAnimSpectatorParticleRadius() {
         return Math.max(0, config.getDouble("world-animation.spectator-particle-radius", 32));
     }
+
+    // =========================================================================
+    //  Fakeout reveals
+    // =========================================================================
+
+    /**
+     * 1-in-N chance for a fakeout reveal on rewarding outcomes (DOUBLED /
+     * TRIPLED / JACKPOT_X5).  Returns 0 when fakeout is disabled.
+     */
+    public int fakeoutChance() {
+        if (!config.getBoolean("fakeout.enabled", true)) return 0;
+        return Math.max(0, config.getInt("fakeout.chance-1-in", 100));
+    }
+
+    // =========================================================================
+    //  Dynamic void events
+    // =========================================================================
+
+    /** Master toggle for periodic void-event surges on idle machines. */
+    public boolean voidEventsEnabled() {
+        return config.getBoolean("void-events.enabled", true);
+    }
+
+    /** Minimum minutes between consecutive void events. */
+    public int voidEventsMinMinutes() {
+        return Math.max(1, config.getInt("void-events.min-interval-minutes", 10));
+    }
+
+    /** Maximum minutes between consecutive void events. Always &gt; min. */
+    public int voidEventsMaxMinutes() {
+        return Math.max(voidEventsMinMinutes() + 1,
+                config.getInt("void-events.max-interval-minutes", 45));
+    }
+
+    // =========================================================================
+    //  Crowd awareness
+    // =========================================================================
+
+    /** Master toggle for crowd-reactive ambient and reveal effects. */
+    public boolean crowdEnabled() {
+        return config.getBoolean("crowd-awareness.enabled", true);
+    }
+
+    /** Minimum number of nearby players to trigger crowd-aware scaling. */
+    public int crowdMinPlayers() {
+        return Math.max(1, config.getInt("crowd-awareness.min-players", 3));
+    }
+
+    /** Detection radius in blocks for crowd counting. */
+    public double crowdRadius() {
+        return Math.max(1.0, config.getDouble("crowd-awareness.radius", 16.0));
+    }
+
+    /**
+     * How often the ambient scheduler refreshes the crowd cache (ticks).
+     * Minimum 20 (1 s).  Default 40 (2 s).
+     */
+    public int crowdCheckIntervalTicks() {
+        return Math.max(20, config.getInt("crowd-awareness.check-interval-ticks", 40));
+    }
 }

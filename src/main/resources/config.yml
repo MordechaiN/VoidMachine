@@ -365,3 +365,42 @@ world-animation:
 
   # Radius in blocks within which spectators receive particle effects.
   spectator-particle-radius: 32
+
+# =============================================================================
+#  Fakeout reveals — rare "jk" moments where a rewarding outcome fakes a
+#  CONSUMED result, then snaps to the real reward with a lightning strike.
+#
+#  Applies ONLY to DOUBLED / TRIPLED / JACKPOT_X5. Never to RETURNED.
+#  Pure presentation — items are always delivered correctly regardless of
+#  whether a fakeout plays.
+# =============================================================================
+fakeout:
+  enabled: true
+  # 1-in-N chance per rewarding outcome. Higher = rarer.
+  # Set chance-1-in: 0 to disable without touching 'enabled'.
+  chance-1-in: 100
+
+# =============================================================================
+#  Dynamic void events — random atmosphere surges that make idle machines feel
+#  alive and unpredictable. Atmosphere only — no rate or economy changes.
+# =============================================================================
+void-events:
+  enabled: true
+  # Random delay between void events, in minutes.
+  min-interval-minutes: 10
+  max-interval-minutes: 45
+
+# =============================================================================
+#  Crowd awareness — machines and reveals react more dramatically when players
+#  are nearby. Amplifies cosmetic effects only; probabilities are unchanged.
+#  Every player sees the same odds regardless of crowd size.
+# =============================================================================
+crowd-awareness:
+  enabled: true
+  # Minimum nearby players to trigger crowd-aware scaling.
+  min-players: 3
+  # Detection radius in blocks (for both ambient and reveal checks).
+  radius: 16.0
+  # How often the ambient scheduler refreshes the nearby-player cache (ticks).
+  # 40 ticks = 2 seconds — lightweight, not per-tick.
+  check-interval-ticks: 40

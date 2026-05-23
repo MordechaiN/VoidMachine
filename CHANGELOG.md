@@ -5,6 +5,95 @@ Format: [version] — date, then Added / Changed / Fixed / Security sections.
 
 ---
 
+## [1.1.0-beta] — 2026-05-23
+
+### Added
+
+- **Rare fakeout reveals** — ~1-in-100 chance for DOUBLED, TRIPLED, and JACKPOT_X5
+  outcomes to play a fake CONSUMED reveal before snapping to the real result.
+
+  Flow: animation resolves normally → fake "CONSUMED" boss bar (red) + smoke burst +
+  wither sound plays → ~1.25 s pause → lightning strike → real outcome reveals
+  (boss bar, particles, sound, chat message).
+
+  Items are delivered *before* any visual plays — the fakeout is 100% presentation.
+  No economic impact; no psychological manipulation of actual odds.
+
+  - `fakeout.enabled` / `fakeout.chance-1-in` in `config.yml`
+  - Pre-rolled in `AnimationPipeline.start()` alongside the outcome roll
+
+- **Unique jackpot variants** — four distinct visual/audio sequences for JACKPOT_X5,
+  pre-rolled per transaction so the same player never sees an identical jackpot twice:
+
+  | Variant | Character |
+  |---------|-----------|
+  | `STORM` | Classic triple lightning, challenge fanfare, dragon growl (original behaviour) |
+  | `SILENT` | Smoke implosion, 1 s of silence, then sudden amethyst burst + lightning |
+  | `DRAGON` | Portal wash, dragon ambient echo, two delayed lightning strikes |
+  | `ECHO` | Chaotic: wither scream + double challenge-done + rapid double lightning |
+
+  All variants scale up particle counts when a crowd is nearby (see Crowd Awareness).
+  Bedrock-safe: vanilla particles, sounds, and lightning only.
+
+  - `JackpotVariant` enum (`com.voidmachine.animation.JackpotVariant`)
+  - Dispatched in `AnimationPipeline.playRevealEffects()` via pre-rolled `ctx.jackpotVariant`
+
+- **Dynamic void events** — random atmospheric surges every 10–45 minutes on idle machines.
+  Selects a random unlocked, chunk-loaded machine and applies:
+  - Stronger PORTAL + SOUL_FIRE_FLAME particle burst
+  - Deeper bass surge (`block.beacon.power_select` louder + lower pitch than idle)
+  - Ender dragon ambient resonance (`entity.ender_dragon.ambient`)
+  - Lightning pulse
+  - Action-bar message to nearby players: *"The Void grows restless…"*
+
+  Atmosphere only — no rate changes, no economy effects, no ritual interference.
+  Re-schedules itself after each event with a fresh random delay.
+
+  - `void-events.enabled`, `void-events.min-interval-minutes`, `void-events.max-interval-minutes`
+  - Implemented in `AmbientEffectScheduler.scheduleNextVoidEvent()` + `triggerVoidEvent()`
+
+- **Crowd awareness system** — machines and reveals scale cosmetic effects when
+  3+ players are nearby (configurable threshold and radius):
+
+  *Ambient effects (idle machines):*
+  - Smoke drift: ×2 particles
+  - Soul-fire accent: ×3 particles
+  - Hum volume: 0.25 → 0.38 (louder, heard from further)
+  - Bass pulse: 0.28 → 0.45
+  - Attract flash: ×2 particles
+
+  *Reveal effects:*
+  - TRIPLED: extra totem burst (+20 particles)
+  - JACKPOT_X5 variants: all increase particle counts and world-space sound volume
+
+  Nearby-player count is cached per machine every 40 ticks (2 s) — never per-tick.
+  Atmosphere only — no probability changes. All players always see identical odds.
+
+  - `crowd-awareness.enabled`, `.min-players`, `.radius`, `.check-interval-ticks`
+  - Cache managed in `AmbientEffectScheduler.updateCrowdCache()`
+  - Reveal check is a single inline `World.getNearbyPlayers()` call at reveal time
+
+### Changed
+
+- **`AnimationPipeline.reveal()` refactored** into composable helpers:
+  `showRevealState()`, `schedulePostRevealCleanup()`, `playFakeoutSequence()`,
+  `getCrowdNearby()`. Transaction bookkeeping (markCompleted / audit / stats) now
+  occurs before the visual sequence, so audit logs are always timely regardless of
+  fakeout delay.
+
+- **`AnimationPipeline.playRevealEffects()` signature extended**: now accepts
+  `JackpotVariant jackpotVariant` and `int crowdNearby` alongside the existing
+  outcome and location parameters.
+
+- **`AmbientEffectScheduler.tickMachine()` extended**: accepts `int crowdNearby`
+  parameter; scales particle counts and sound volumes when crowd threshold is met.
+
+### Version
+
+- Bumped to `1.1.0-beta` in `build.gradle.kts`.
+
+---
+
 ## [Unreleased]
 
 ### Changed

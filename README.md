@@ -99,6 +99,10 @@ Full ritual experience — boss bar, inventory GUI, particles — on Java and Be
 - ⏱️ **Cooldowns + daily limits** — per-player and global
 - 🛡️ **Explosion, piston, and liquid protection** — machine blocks are indestructible through gameplay
 - 🔐 **Ritual lock** — after pressing START, the player is claimed by the Void. Positional movement blocks; camera stays free. Inventory, drop, and hand-swap blocked too. Releases automatically on all exit paths — no player can be left permanently locked.
+- 🎭 **Rare fakeout reveals** — ~1-in-100 chance for rewarding outcomes to fake a CONSUMED result before snapping to the real reward with a lightning strike. Items always delivered correctly first.
+- ⚡ **Unique jackpot variants** — four distinct visual sequences (Storm, Silent Void, Dragon Resonance, Void Echo) randomly selected per jackpot. Bedrock-safe.
+- 🌑 **Dynamic void events** — random 10–45 minute atmosphere surges on idle machines. Deeper bass, stronger particles, lightning, and *"The Void grows restless…"* nearby action-bar. No gameplay impact.
+- 👥 **Crowd-reactive ambience** — when 3+ players are nearby, idle hum and reveal effects amplify cosmetically. Everyone always sees identical odds.
 - 💀 **Death-safe** — dying during staging injects the item into death drops. No silent loss.
 - 🎮 **Bedrock / controller / touch first** — designed for lowest-precision input. No shift-click, no keyboard shortcuts, no Java-specific habits required.
 
@@ -321,11 +325,15 @@ Randomized ambient sound pool with pitch variation — idle machines breathe dif
 ### Near-term
 - [x] **Sound identity** — randomized ambient pool, commit click, TRIPLED aftershock, jackpot dragon growl
 - [x] **Lifetime statistics** — `/vm stats` with per-outcome counts, items consumed, top offering
+- [x] **Fakeout reveals** — rare jk moments before rewarding outcomes
+- [x] **Jackpot variants** — 4 distinct visual sequences (Storm, Silent, Dragon, Echo)
+- [x] **Dynamic void events** — random atmosphere surges on idle machines
+- [x] **Crowd-reactive ambience** — scales cosmetics when 3+ players nearby
 - [ ] **Reward-rate balancing** — per-item-type weight overrides
 
 ### Medium-term
 - [ ] **Jackpot spectator mode** — nearby players pulled into shared cinematic view on ×5
-- [ ] **Machine attunement** — server-wide void events triggered by jackpot streaks
+- [ ] **Machine attunement** — persistent machine personality that shifts ambient mood over time
 - [ ] **Analytics dashboard** — per-machine sacrifice statistics
 
 ### Long-term

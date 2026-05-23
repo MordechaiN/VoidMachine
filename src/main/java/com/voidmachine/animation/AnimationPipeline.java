@@ -45,6 +45,7 @@ import org.joml.Vector3f;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
@@ -90,6 +91,10 @@ public final class AnimationPipeline {
     // Jackpot identity — "the void acknowledges the sacrifice".
     // Played at the second lightning strike (+10 ticks) so it lands with the visual.
     private static final String SND_DRAGON_GROWL   = "entity.ender_dragon.growl";
+    // Fakeout — played when the machine pretends to consume a rewarding item.
+    private static final String SND_WITHER_SPAWN   = "entity.wither.spawn";
+    // Dragon variant — ominous ambient resonance before the real reveal.
+    private static final String SND_DRAGON_AMBIENT = "entity.ender_dragon.ambient";
 
     private final VoidMachinePlugin plugin;
     private final PluginConfig config;
@@ -236,11 +241,27 @@ public final class AnimationPipeline {
                 ? Math.min(rawOutput, config.maxReturnAmount())
                 : rawOutput;
 
+        // ── Pre-roll fakeout reveal ───────────────────────────────────────────
+        // DOUBLED / TRIPLED / JACKPOT_X5 only. Pure presentation — items are
+        // committed before any visual plays; no economic impact.
+        boolean isFakeout = false;
+        int fakeoutChance = config.fakeoutChance(); // 0 = disabled
+        if (fakeoutChance > 0
+                && (outcome == Outcome.DOUBLED
+                        || outcome == Outcome.TRIPLED
+                        || outcome == Outcome.JACKPOT_X5)) {
+            isFakeout = ThreadLocalRandom.current().nextInt(fakeoutChance) == 0;
+        }
+
+        // ── Pre-roll jackpot variant (JACKPOT_X5 only) ───────────────────────
+        JackpotVariant jackpotVariant = (outcome == Outcome.JACKPOT_X5)
+                ? JackpotVariant.roll() : null;
+
         // ── Create context and start ramp ────────────────────────────────────
 
         AnimationContext ctx = new AnimationContext(
                 tx, bossBar, display, rampSteps, stepTicks, tensionTicks,
-                outcome, outputAmount);
+                outcome, outputAmount, isFakeout, jackpotVariant);
         active.put(uuid, ctx);
 
         // ── Open cinematic GUI ────────────────────────────────────────────────
@@ -438,7 +459,7 @@ public final class AnimationPipeline {
 
         // ── Use pre-rolled outcome (decided in start() before animation began) ─
 
-        Outcome outcome     = ctx.outcome;
+        Outcome outcome      = ctx.outcome;
         int     outputAmount = ctx.outputAmount;
 
         // ── Mark DELIVERING in checkpoint BEFORE any delivery ────────────────
@@ -467,22 +488,58 @@ public final class AnimationPipeline {
             }
         }
 
-        // ── Boss bar reveal ──────────────────────────────────────────────────
+        // ── Complete transaction bookkeeping (before visual sequence) ─────────
+        // Items are safe — audit and stats are recorded before any fakeout delay.
+
+        ctx.tx.markCompleted();
+
+        String itemType = ctx.tx.sacrifice() != null
+                ? ctx.tx.sacrifice().getType().key().asString() : "unknown";
+        audit.logCompleted(uuid, ctx.tx.playerName(), ctx.tx.machineLoc(),
+                itemType, ctx.tx.inputAmount(), outcome, outputAmount);
+
+        GlobalStats gs = globalStats;
+        if (gs != null) gs.record(itemType, ctx.tx.inputAmount(), outcome);
+
+        logger.info("[AnimationPipeline] " + ctx.tx.playerName() + " → " + outcome.name()
+                + " (in=" + ctx.tx.inputAmount() + " out=" + outputAmount + ')');
+
+        // ── Visual sequence ───────────────────────────────────────────────────
+
+        if (ctx.isFakeout) {
+            playFakeoutSequence(ctx, player, machLoc, uuid);
+        } else {
+            int crowdNearby = getCrowdNearby(machLoc);
+            showRevealState(ctx, player, machLoc, outcome, outputAmount, crowdNearby);
+            schedulePostRevealCleanup(ctx, uuid);
+        }
+    }
+
+    // =========================================================================
+    //  Reveal helpers — shared by normal and fakeout paths
+    // =========================================================================
+
+    /**
+     * Apply the real reveal visuals: boss bar update, sound/particle effects,
+     * cinematic GUI reveal, and chat message.
+     * Called by both the normal reveal path and the fakeout real-reveal phase.
+     */
+    private void showRevealState(@NotNull AnimationContext ctx,
+                                  @Nullable Player player,
+                                  @NotNull Location machLoc,
+                                  @NotNull Outcome outcome,
+                                  int outputAmount,
+                                  int crowdNearby) {
+        UUID uuid = ctx.tx.playerId();
 
         ctx.bossBar.progress(1.0f);
         ctx.bossBar.name(messages.render("animation.bossbar.reveal." + outcome.configKey()));
         ctx.bossBar.color(revealBarColor(outcome));
 
-        // ── Effects (sound, particles, lightning) ────────────────────────────
-
-        playRevealEffects(outcome, player, machLoc);
-
-        // ── Update cinematic GUI ──────────────────────────────────────────────
+        playRevealEffects(outcome, ctx.jackpotVariant, player, machLoc, crowdNearby);
 
         CinematicGui cg = cinematicGui;
         if (cg != null) cg.onReveal(uuid, outcome, outputAmount);
-
-        // ── Chat message ─────────────────────────────────────────────────────
 
         if (player != null && player.isOnline()) {
             String itemKey = ctx.tx.sacrifice() != null
@@ -492,31 +549,80 @@ public final class AnimationPipeline {
                     Placeholder.parsed("output", String.valueOf(outputAmount)),
                     Placeholder.parsed("item",   itemKey)));
         }
+    }
 
-        // ── Complete transaction ──────────────────────────────────────────────
-
-        ctx.tx.markCompleted();
-
-        String itemType = ctx.tx.sacrifice() != null
-                ? ctx.tx.sacrifice().getType().key().asString() : "unknown";
-        audit.logCompleted(uuid, ctx.tx.playerName(), ctx.tx.machineLoc(),
-                itemType, ctx.tx.inputAmount(), outcome, outputAmount);
-
-        // Update global lifetime stats.
-        GlobalStats gs = globalStats;
-        if (gs != null) gs.record(itemType, ctx.tx.inputAmount(), outcome);
-
-        logger.info("[AnimationPipeline] " + ctx.tx.playerName() + " → " + outcome.name()
-                + " (in=" + ctx.tx.inputAmount() + " out=" + outputAmount + ')');
-
-        // ── Remove boss bar after 1 s, then complete ─────────────────────────
-
+    /**
+     * Schedule the post-reveal cleanup: hide boss bar after 1 s, then clean up
+     * animation state and mark the transaction complete.
+     */
+    private void schedulePostRevealCleanup(@NotNull AnimationContext ctx,
+                                            @NotNull UUID uuid) {
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             Player p = plugin.getServer().getPlayer(uuid);
             if (p != null) p.hideBossBar(ctx.bossBar);
             cleanupAnimation(ctx, uuid);
             captureService.completeTransaction(ctx.tx);
         }, 20L);
+    }
+
+    /**
+     * Rare fakeout sequence: present a fake CONSUMED result, pause ~1.25 s,
+     * then snap to the real outcome with a lightning strike.
+     *
+     * <p>Items are already delivered and the transaction is already marked
+     * completed before this method is called — the fakeout is pure theatre.</p>
+     */
+    private void playFakeoutSequence(@NotNull AnimationContext ctx,
+                                      @Nullable Player player,
+                                      @NotNull Location machLoc,
+                                      @NotNull UUID uuid) {
+        World world  = machLoc.getWorld();
+        Location center = machLoc.clone().add(0.5, 1.0, 0.5);
+
+        // ── Phase A: fake CONSUMED state ──────────────────────────────────────
+        ctx.bossBar.progress(1.0f);
+        ctx.bossBar.name(messages.render("animation.bossbar.reveal."
+                + Outcome.DESTROYED.configKey()));
+        ctx.bossBar.color(BossBar.Color.RED);
+
+        if (world != null) {
+            world.spawnParticle(Particle.SMOKE, center, 20, 0.3, 0.4, 0.3, 0.04);
+            // World-space wither sound — spectators hear the "consumption" too.
+            world.playSound(center, SND_WITHER_SPAWN, 0.55f, 1.3f);
+        }
+
+        // CinematicGui: display fake consumed state.
+        CinematicGui cgFake = cinematicGui;
+        if (cgFake != null) cgFake.onReveal(uuid, Outcome.DESTROYED, 0);
+
+        // ── Phase B: lightning snap → real reveal (~1.25 s later) ────────────
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (ctx.cancelled) return;
+            Player p = plugin.getServer().getPlayer(uuid);
+
+            // Lightning snap — the "just kidding" moment.
+            if (world != null && world.isChunkLoaded(
+                    machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                world.strikeLightningEffect(machLoc);
+            }
+
+            int crowdNearby = getCrowdNearby(machLoc);
+            showRevealState(ctx, p, machLoc, ctx.outcome, ctx.outputAmount, crowdNearby);
+            schedulePostRevealCleanup(ctx, uuid);
+        }, 25L);
+    }
+
+    /**
+     * Returns the number of players within the crowd-awareness radius of the
+     * machine. Returns 0 if crowd awareness is disabled or the world is null.
+     * Called once at reveal time — not cached.
+     */
+    private int getCrowdNearby(@NotNull Location machLoc) {
+        if (!config.crowdEnabled()) return 0;
+        World world = machLoc.getWorld();
+        if (world == null) return 0;
+        Location center = machLoc.clone().add(0.5, 0.5, 0.5);
+        return world.getNearbyPlayers(center, config.crowdRadius()).size();
     }
 
     // =========================================================================
@@ -607,8 +713,10 @@ public final class AnimationPipeline {
     }
 
     private void playRevealEffects(@NotNull Outcome outcome,
+                                   @Nullable JackpotVariant jackpotVariant,
                                    @Nullable Player player,
-                                   @NotNull Location machLoc) {
+                                   @NotNull Location machLoc,
+                                   int crowdNearby) {
         World world = machLoc.getWorld();
         Location center = machLoc.clone().add(0.5, 1.0, 0.5);
 
@@ -635,12 +743,14 @@ public final class AnimationPipeline {
                 if (player != null && player.isOnline())
                     playSound(player, SND_LEVELUP, 1.0f, 1.3f);
                 if (world != null) {
-                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 30, 0.4, 0.4, 0.4, 0.08);
+                    // Crowd bonus: extra totem burst when min-players threshold met.
+                    int extraTotem = (crowdNearby >= config.crowdMinPlayers()) ? 20 : 0;
+                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, center,
+                            30 + extraTotem, 0.4, 0.4, 0.4, 0.08);
                     world.spawnParticle(Particle.END_ROD, center, 12, 0.3, 0.3, 0.3, 0.03);
                     // World-space sound — nearby players (~32 blocks) hear the surge.
                     world.playSound(center, SND_LEVELUP, 2.0f, 1.3f);
-                    // Resonance aftershock at +4 ticks — deep amethyst chime gives
-                    // TRIPLED a distinct audio identity vs DOUBLED (which stops here).
+                    // Resonance aftershock at +4 ticks — distinct TRIPLED audio identity.
                     plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                         if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
                             world.playSound(center, SND_AMETHYST_CHIME, 0.85f, 0.65f);
@@ -649,37 +759,155 @@ public final class AnimationPipeline {
                 }
             }
             case JACKPOT_X5 -> {
-                if (player != null && player.isOnline())
-                    playSound(player, SND_CHALLENGE_DONE, 1.0f, 1.0f);
-                if (world != null) {
-                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 50, 0.5, 0.5, 0.5, 0.15);
-                    world.spawnParticle(Particle.END_ROD, center, 20, 0.4, 0.4, 0.4, 0.05);
-
-                    // First lightning strike + world-space boom heard ~64 blocks out.
-                    world.strikeLightningEffect(machLoc);
-                    world.playSound(center, SND_CHALLENGE_DONE, 4.0f, 1.0f);
-
-                    // Second strike — +10 ticks. Extra totem burst + dragon growl.
-                    // Dragon growl lands with the lightning for maximum impact,
-                    // creating a unique audio identity for jackpot vs any other outcome.
-                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                        if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
-                            world.strikeLightningEffect(machLoc);
-                            world.spawnParticle(Particle.TOTEM_OF_UNDYING,
-                                    center, 30, 0.4, 0.4, 0.4, 0.10);
-                            // "The void acknowledges the sacrifice." Heard ~12 blocks.
-                            world.playSound(center, SND_DRAGON_GROWL, 0.65f, 1.2f);
-                        }
-                    }, 10L);
-
-                    // Third strike — +20 ticks. Final punctuation.
-                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                        if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
-                            world.strikeLightningEffect(machLoc);
-                        }
-                    }, 20L);
+                // Dispatch to pre-rolled jackpot variant.
+                JackpotVariant variant = (jackpotVariant != null)
+                        ? jackpotVariant : JackpotVariant.STORM;
+                boolean crowded = crowdNearby >= config.crowdMinPlayers();
+                switch (variant) {
+                    case STORM  -> playJackpotStorm(player, machLoc, crowded);
+                    case SILENT -> playJackpotSilent(player, machLoc, crowded);
+                    case DRAGON -> playJackpotDragon(player, machLoc, crowded);
+                    case ECHO   -> playJackpotEcho(player, machLoc, crowded);
                 }
             }
+        }
+    }
+
+    // ── Jackpot variant implementations ──────────────────────────────────────
+
+    /** Classic storm — triple lightning, challenge fanfare, dragon growl. */
+    private void playJackpotStorm(@Nullable Player player,
+                                   @NotNull Location machLoc,
+                                   boolean crowded) {
+        World world = machLoc.getWorld();
+        Location center = machLoc.clone().add(0.5, 1.0, 0.5);
+        if (player != null && player.isOnline())
+            playSound(player, SND_CHALLENGE_DONE, 1.0f, 1.0f);
+        if (world != null) {
+            world.spawnParticle(Particle.TOTEM_OF_UNDYING, center,
+                    crowded ? 70 : 50, 0.5, 0.5, 0.5, 0.15);
+            world.spawnParticle(Particle.END_ROD, center,
+                    crowded ? 30 : 20, 0.4, 0.4, 0.4, 0.05);
+            world.strikeLightningEffect(machLoc);
+            world.playSound(center, SND_CHALLENGE_DONE, crowded ? 6.0f : 4.0f, 1.0f);
+            // Second strike — +10 ticks: dragon growl.
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                    world.strikeLightningEffect(machLoc);
+                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, center,
+                            30, 0.4, 0.4, 0.4, 0.10);
+                    world.playSound(center, SND_DRAGON_GROWL, 0.65f, 1.2f);
+                }
+            }, 10L);
+            // Third strike — +20 ticks: final punctuation.
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                    world.strikeLightningEffect(machLoc);
+                    if (crowded) {
+                        world.spawnParticle(Particle.TOTEM_OF_UNDYING, center,
+                                20, 0.35, 0.35, 0.35, 0.08);
+                    }
+                }
+            }, 20L);
+        }
+    }
+
+    /**
+     * Silent void — smoke implosion, one second of silence, then sudden chime
+     * and lightning burst. "The void doesn't need to be loud."
+     */
+    private void playJackpotSilent(@Nullable Player player,
+                                    @NotNull Location machLoc,
+                                    boolean crowded) {
+        World world = machLoc.getWorld();
+        Location center = machLoc.clone().add(0.5, 1.0, 0.5);
+        // Immediate: brief smoke implosion — dark and ominous.
+        if (world != null)
+            world.spawnParticle(Particle.SMOKE, center, 12, 0.3, 0.5, 0.3, 0.02);
+        // After 1 s: sudden burst — the void breaks its own silence.
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (world == null) return;
+            if (!world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) return;
+            if (player != null && player.isOnline())
+                playSound(player, SND_AMETHYST_CHIME, 1.0f, 0.5f); // deep, resonant
+            world.strikeLightningEffect(machLoc);
+            world.spawnParticle(Particle.END_ROD, center,
+                    crowded ? 50 : 35, 0.5, 0.5, 0.5, 0.08);
+            world.spawnParticle(Particle.PORTAL, center,
+                    crowded ? 60 : 40, 0.6, 0.6, 0.6, 0.12);
+            world.playSound(center, SND_AMETHYST_CHIME, crowded ? 2.0f : 1.2f, 0.5f);
+            world.playSound(center, SND_CHALLENGE_DONE, crowded ? 3.0f : 2.0f, 1.2f);
+        }, 20L);
+    }
+
+    /**
+     * Dragon resonance — the void acknowledges something ancient.
+     * Slow sequence: portal wash → dragon growl echo → two delayed lightning strikes.
+     */
+    private void playJackpotDragon(@Nullable Player player,
+                                    @NotNull Location machLoc,
+                                    boolean crowded) {
+        World world = machLoc.getWorld();
+        Location center = machLoc.clone().add(0.5, 1.0, 0.5);
+        if (player != null && player.isOnline())
+            playSound(player, SND_DRAGON_AMBIENT, 1.0f, 0.8f);
+        if (world != null) {
+            world.spawnParticle(Particle.PORTAL, center,
+                    crowded ? 60 : 40, 0.5, 0.6, 0.5, 0.10);
+            world.spawnParticle(Particle.END_ROD, center,
+                    crowded ? 25 : 15, 0.4, 0.4, 0.4, 0.04);
+            world.playSound(center, SND_DRAGON_AMBIENT, crowded ? 1.5f : 0.9f, 0.8f);
+            // First lightning — slow, dramatic.
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                    world.strikeLightningEffect(machLoc);
+                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, center,
+                            25, 0.4, 0.4, 0.4, 0.08);
+                }
+            }, 8L);
+            // Second lightning — deep amethyst chime.
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                    world.strikeLightningEffect(machLoc);
+                    world.playSound(center, SND_AMETHYST_CHIME,
+                            crowded ? 1.2f : 0.8f, 0.55f);
+                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, center,
+                            crowded ? 30 : 18, 0.4, 0.4, 0.4, 0.09);
+                }
+            }, 22L);
+        }
+    }
+
+    /**
+     * Void echo — chaotic, overwhelming. The machine couldn't contain it.
+     * Wither scream + double challenge-done + rapid double lightning.
+     */
+    private void playJackpotEcho(@Nullable Player player,
+                                  @NotNull Location machLoc,
+                                  boolean crowded) {
+        World world = machLoc.getWorld();
+        Location center = machLoc.clone().add(0.5, 1.0, 0.5);
+        if (player != null && player.isOnline()) {
+            playSound(player, SND_WITHER_SPAWN, 0.8f, 1.1f);
+            playSound(player, SND_CHALLENGE_DONE, 1.0f, 0.9f);
+        }
+        if (world != null) {
+            world.spawnParticle(Particle.TOTEM_OF_UNDYING, center,
+                    crowded ? 80 : 60, 0.6, 0.6, 0.6, 0.18);
+            world.spawnParticle(Particle.PORTAL, center,
+                    crowded ? 50 : 35, 0.5, 0.5, 0.5, 0.14);
+            world.strikeLightningEffect(machLoc);
+            world.playSound(center, SND_CHALLENGE_DONE, crowded ? 5.0f : 3.5f, 0.9f);
+            // Rapid second strike — echo.
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (world.isChunkLoaded(machLoc.getBlockX() >> 4, machLoc.getBlockZ() >> 4)) {
+                    world.strikeLightningEffect(machLoc);
+                    world.spawnParticle(Particle.END_ROD, center,
+                            crowded ? 35 : 25, 0.45, 0.45, 0.45, 0.07);
+                    world.playSound(center, SND_CHALLENGE_DONE,
+                            crowded ? 4.0f : 2.5f, 1.1f);
+                }
+            }, 6L);
         }
     }
 
@@ -759,6 +987,19 @@ public final class AnimationPipeline {
          */
         final int outputAmount;
 
+        /**
+         * Pre-rolled fakeout flag. When {@code true}, the reveal phase plays a fake
+         * CONSUMED result before snapping to the real outcome. Only possible for
+         * DOUBLED, TRIPLED, and JACKPOT_X5.
+         */
+        final boolean isFakeout;
+
+        /**
+         * Pre-rolled jackpot variant; non-null only for {@link Outcome#JACKPOT_X5}.
+         * Determines which visual/audio sequence plays at reveal time.
+         */
+        @Nullable final JackpotVariant jackpotVariant;
+
         /** Current ramp step count. Incremented each timer fire. */
         int step;
         /** Set to {@code true} to abort on next timer tick. */
@@ -773,15 +1014,19 @@ public final class AnimationPipeline {
                          int stepTicks,
                          int tensionTicks,
                          @NotNull Outcome outcome,
-                         int outputAmount) {
-            this.tx           = tx;
-            this.bossBar      = bossBar;
-            this.display      = display;
-            this.rampSteps    = rampSteps;
-            this.stepTicks    = stepTicks;
-            this.tensionTicks = tensionTicks;
-            this.outcome      = outcome;
-            this.outputAmount = outputAmount;
+                         int outputAmount,
+                         boolean isFakeout,
+                         @Nullable JackpotVariant jackpotVariant) {
+            this.tx             = tx;
+            this.bossBar        = bossBar;
+            this.display        = display;
+            this.rampSteps      = rampSteps;
+            this.stepTicks      = stepTicks;
+            this.tensionTicks   = tensionTicks;
+            this.outcome        = outcome;
+            this.outputAmount   = outputAmount;
+            this.isFakeout      = isFakeout;
+            this.jackpotVariant = jackpotVariant;
         }
     }
 }
