@@ -156,6 +156,22 @@ class AdminTest {
     }
 
     @Test
+    void staleConfirmationChangesNothing() {
+        JournalRecord r = review(5);
+        TestPlayer other = h.player("Root2", m);
+        other.setOp(true);
+        String refundCode = code(said(admin, "vm admin refund " + r.shortId()));
+        said(other, "vm admin confirm " + code(said(other, "vm admin release " + r.shortId())));
+        h.settle();
+        String out = said(admin, "vm admin confirm " + refundCode);
+        assertTrue(out.contains("no longer exists"), out);
+        h.settle();
+        assertNull(h.rt().journal().get(r.ritualId()));
+        assertEquals(com.voidmachine.core.health.HealthMonitor.State.HEALTHY, h.rt().health().state(), "a stale confirmation is not a storage error");
+        assertEquals(0, Harness.count(player, Material.DIAMOND));
+    }
+
+    @Test
     void resolveEndsARunningRitualWithItsSealedVerdict() {
         Harness.hold(player, Material.DIAMOND, 4);
         h.offerHeld(player, m);

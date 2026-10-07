@@ -368,7 +368,9 @@ public final class RitualService implements CustodyService.ActiveRituals {
         }
         Settings s = r.settings;
         r.machine.release(r.id, s.cooldowns().machineSeconds() * 1000L, r.verdict.outcomeId());
-        playerCooldownUntil.put(r.playerId, System.currentTimeMillis() + s.cooldowns().playerSeconds() * 1000L);
+        long now = System.currentTimeMillis();
+        if (playerCooldownUntil.size() > 256) playerCooldownUntil.values().removeIf(until -> until <= now);
+        playerCooldownUntil.put(r.playerId, now + s.cooldowns().playerSeconds() * 1000L);
         completed++;
         audit.log(AuditLog.Event.TRANSACTION_COMMITTED, Map.of("ritual", r.id, "player", r.playerName, "reason", reason,
                 "paid", r.paidAtReveal, "held", r.heldAtReveal));

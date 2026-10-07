@@ -300,6 +300,14 @@ public final class VoidMachineCommand implements TabExecutor {
         }
         boolean clearBlock = Arrays.asList(args).contains("--clear-block");
         String code = rt.confirmations().request(sender.getName(), "remove machine " + m.id(), () -> {
+            if (rt.machines().byId(m.id()) != m) {
+                error(sender, "Machine '" + m.id() + "' was already removed or replaced; nothing changed.");
+                return;
+            }
+            if (m.isBusy() && !force) {
+                error(sender, "A ritual started on '" + m.id() + "' meanwhile; nothing changed. Add --force to resolve it.");
+                return;
+            }
             if (m.isBusy()) {
                 ActiveRitual r = rt.rituals().byId(m.activeRitual());
                 if (r != null) rt.rituals().resolveNow(r, "machine-removed");
@@ -492,6 +500,7 @@ public final class VoidMachineCommand implements TabExecutor {
             return;
         }
         String code = rt.confirmations().request(sender.getName(), "refund " + r.shortId(), () -> {
+            if (!unchanged(sender, r)) return;
             JournalRecord refund = r.asRefund(sender.getName());
             rt.journal().replace(refund, ok -> {
                 if (!ok) {
@@ -520,6 +529,7 @@ public final class VoidMachineCommand implements TabExecutor {
             return;
         }
         String code = rt.confirmations().request(sender.getName(), "release " + r.shortId(), () -> {
+            if (!unchanged(sender, r)) return;
             rt.journal().delete(r.ritualId(), null);
             rt.audit().log(AuditLog.Event.ADMIN_ACTION, Map.of("action", "release", "ritual", r.ritualId(), "by", sender.getName(),
                     "player", r.playerName(), "reward", r.rewardAmount(), "item", r.itemKey()));
@@ -657,6 +667,20 @@ public final class VoidMachineCommand implements TabExecutor {
     // ------------------------------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------------------------------
+
+    /** A confirmation acts on the record as it was shown; if it settled or changed meanwhile, nothing happens. */
+    private boolean unchanged(CommandSender sender, JournalRecord shown) {
+        JournalRecord now = rt.journal().get(shown.ritualId());
+        if (now == null) {
+            error(sender, "Record " + shown.shortId() + " no longer exists (it was settled meanwhile); nothing changed.");
+            return false;
+        }
+        if (now.revision() != shown.revision() || rt.rituals().byId(shown.ritualId()) != null) {
+            error(sender, "Record " + shown.shortId() + " changed since you looked at it; nothing changed. Run the command again.");
+            return false;
+        }
+        return true;
+    }
 
     private Machine machineArg(CommandSender sender, String[] args) {
         if (args.length < 2) {

@@ -195,6 +195,9 @@ public final class CustodyService {
 
     /** Called every few seconds: retries held rewards for online players (throttled per player). */
     public void retryTick() {
+        // Decoded templates are only needed while their record exists.
+        templates.keySet().removeIf(id -> journal.get(id) == null);
+        undecodable.removeIf(id -> journal.get(id) == null);
         Settings s = settings.get();
         long every = (s == null ? 5 : s.delivery().retrySeconds()) * 1000L;
         long now = System.currentTimeMillis();

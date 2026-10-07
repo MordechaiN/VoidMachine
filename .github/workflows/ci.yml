@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gradle 8.14 runs on Java 21; the plugin is compiled and tested with the Java 25 toolchain.
+      # The last listed version becomes JAVA_HOME; JAVA_HOME_25_X64 is offered to the toolchain below.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            25
+            21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test
+        run: >
+          ./gradlew build --no-daemon
+          -Porg.gradle.java.installations.fromEnv=JAVA_HOME_25_X64
+          -Porg.gradle.java.installations.auto-download=false
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: build/reports/tests/
+
+      - name: Upload plugin jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoidMachine
+          path: build/libs/VoidMachine-*.jar

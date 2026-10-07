@@ -184,6 +184,8 @@ public final class V1ConfigMigration {
             case "sounds", "particles" -> key + ".* were replaced by themes in rituals.yml.";
             case "storage" -> "storage.* (YAML/MySQL) was only used by the unused V1 legacy GUI. V2 stores data in plugins/VoidMachine.";
             case "checkpoint" -> "checkpoint.* was removed: V2 recovery never needs a redelivery switch.";
+            case "events.discord" -> "events.discord (DiscordSRV forwarding) is not part of V2. If you used it, forward "
+                    + "RitualRevealEvent/RitualJackpotEvent with a small bridge plugin; see docs/MIGRATION.md.";
             case "plugin.language", "plugin.locale" -> key + " was replaced by language.default and per-player client languages.";
             default -> key + " was removed.";
         };
