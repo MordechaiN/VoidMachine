@@ -3,6 +3,7 @@ package com.voidmachine.paper.menu;
 import com.voidmachine.core.config.Settings;
 import com.voidmachine.core.outcome.OutcomeTable;
 import com.voidmachine.paper.i18n.Messages;
+import com.voidmachine.paper.item.ItemCodec;
 import com.voidmachine.paper.item.OfferingRules;
 import com.voidmachine.paper.machine.Machine;
 import com.voidmachine.paper.ritual.RitualService;
@@ -226,14 +227,17 @@ public final class OfferingMenu implements InventoryHolder {
         Settings s = settings.get();
         Settings.Profile profile = s.profiles().get(machine.record().profile());
         if (profile != null) {
+            long total = profile.table().entries().stream().mapToLong(OutcomeTable.Entry::units).sum();
             for (OutcomeTable.Entry e : profile.table().entries()) {
                 if (e.units() == 0) continue;
-                double p = (double) e.units() / profile.table().entries().stream().mapToLong(OutcomeTable.Entry::units).sum();
+                double p = (double) e.units() / total;
                 String rarity = p >= 0.30 ? "common" : p >= 0.10 ? "uncommon" : p >= 0.02 ? "rare" : "legendary";
                 String nameKey = "outcomes." + e.definition().id() + ".name";
                 Component name = messages.has(nameKey) ? messages.render(variant, nameKey) : Component.text(e.definition().id());
+                String chance = String.format(java.util.Locale.ROOT, p < 0.01 ? "%.2f%%" : "%.1f%%", p * 100);
                 lore.add(messages.render(variant, "offering.info.line", Placeholder.component("outcome", name),
-                                Placeholder.component("rarity", messages.render(variant, "rarity." + rarity)))
+                                Placeholder.component("rarity", messages.render(variant, "rarity." + rarity)),
+                                Placeholder.unparsed("chance", chance))
                         .decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
             }
         }
@@ -262,18 +266,25 @@ public final class OfferingMenu implements InventoryHolder {
     private TagResolver[] resolvers() {
         return new TagResolver[]{
                 Placeholder.unparsed("amount", Integer.toString(amount)),
-                Placeholder.component("item", selected.effectiveName()),
+                Placeholder.component("item", ItemCodec.name(selected)),
                 Placeholder.unparsed("machine", machine.record().displayName())
         };
     }
 
+    /** Placeholders the result texts may use: {@code <seconds>} and {@code <player>} (who occupies the machine). */
     private TagResolver seconds(RitualService.BeginResult result) {
         long ms = switch (result) {
             case MACHINE_RESTING -> machine.restingMillis();
             case PLAYER_COOLDOWN -> rituals.playerCooldownMillis(player.getUniqueId());
             default -> 0;
         };
-        return Placeholder.unparsed("seconds", Long.toString((ms + 999) / 1000));
+        String occupant = "?";
+        if (machine.activeRitual() != null) {
+            var other = rituals.byId(machine.activeRitual());
+            if (other != null) occupant = other.playerName();
+        }
+        return TagResolver.resolver(Placeholder.unparsed("seconds", Long.toString((ms + 999) / 1000)),
+                Placeholder.unparsed("player", occupant));
     }
 
     private int available() {

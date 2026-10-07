@@ -30,6 +30,7 @@ import com.voidmachine.paper.machine.MachineStore;
 import com.voidmachine.paper.menu.MenuListener;
 import com.voidmachine.paper.migration.LegacyDataMigrator;
 import com.voidmachine.paper.presentation.AmbientService;
+import com.voidmachine.paper.presentation.CueGuard;
 import com.voidmachine.paper.presentation.DisplayService;
 import com.voidmachine.paper.presentation.RitualDirector;
 import com.voidmachine.paper.ritual.CustodyService;
@@ -181,14 +182,15 @@ public final class VoidMachineRuntime {
         displays = new DisplayService(displayKey);
         custody = new CustodyService(plugin, journal, messages, config::settings, ledgerKey, rewardKey, health, audit, logger, sessionStart);
         rituals = new RitualService(journal, custody, machines, messages, config::settings, config::book, engine, health, audit, stats, logger);
-        director = new RitualDirector(plugin, messages, config::settings, displays, budget, health, logger);
+        CueGuard cues = new CueGuard(logger, health);
+        director = new RitualDirector(plugin, messages, config::settings, displays, budget, health, logger, cues);
         rituals.bind(director);
         director.bind(rituals);
         custody.bind(rituals, r -> {
             Machine m = machines.byId(r.machineId());
             return m == null ? null : m.view();
         });
-        ambient = new AmbientService(plugin, machines, config::settings, config::book, messages);
+        ambient = new AmbientService(plugin, machines, config::settings, config::book, messages, cues);
 
         // 7. Recovery for players already online (plugin reload): live ledger, never treated as proof.
         for (Player p : Bukkit.getOnlinePlayers()) custody.reconcile(p, CustodyEngine.Mode.LIVE);

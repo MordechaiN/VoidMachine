@@ -103,7 +103,7 @@ public final class CustodyService {
     public BukkitCustodyPlayer custodyOf(Player p, UUID ritualId) {
         Settings s = settings.get();
         Settings.Overflow overflow = s == null ? Settings.Overflow.HOLD : s.delivery().overflow();
-        return new BukkitCustodyPlayer(p, ledgerKey, rewardKey, overflow, ritualId);
+        return new BukkitCustodyPlayer(p, ledgerKey, rewardKey, overflow, ritualId, logger);
     }
 
     /** Decoded single-item template of a record; {@code null} (and an admin alert) if it cannot be decoded. */
@@ -377,7 +377,7 @@ public final class CustodyService {
 
     private TagResolver item(JournalRecord r) {
         ItemStack t = template(r);
-        return Placeholder.component("item", t == null ? Component.text(r.itemKey()) : t.effectiveName());
+        return Placeholder.component("item", t == null ? Component.text(r.itemKey()) : ItemCodec.name(t));
     }
 
     private TagResolver outcome(Player p, JournalRecord r) {

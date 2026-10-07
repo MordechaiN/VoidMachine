@@ -67,7 +67,7 @@ offering:
       - "<gray>מקריבים ערימה אחת. הריק מחליט."
       - "<gray>הסיכויים זהים לכולם."
       - ""
-    line: "<dark_gray>• <white><outcome></white> <dark_gray>— <rarity>"
+    line: "<dark_gray>• <white><outcome></white> <dark_gray>— <rarity> <dark_gray>(<gray><chance></gray>)"
   choose-first: "<gray>קודם געו בפריט בתיק שלכם."
   refused:
     empty: "<gray>בחרו פריט."

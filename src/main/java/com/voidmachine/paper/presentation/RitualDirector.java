@@ -20,6 +20,7 @@ import com.voidmachine.core.timeline.TimelineComposer;
 import com.voidmachine.core.timeline.VariantPicker;
 import com.voidmachine.paper.diag.TickProfiler;
 import com.voidmachine.paper.i18n.Messages;
+import com.voidmachine.paper.item.ItemCodec;
 import com.voidmachine.paper.menu.ChamberMenu;
 import com.voidmachine.paper.ritual.ActiveRitual;
 import com.voidmachine.paper.ritual.RitualAccess;
@@ -65,6 +66,7 @@ public final class RitualDirector implements RitualService.Presentation {
     private final EffectBudget budget;
     private final HealthMonitor health;
     private final Logger logger;
+    private final CueGuard cues;
     private final TickProfiler profiler = new TickProfiler(1200);
     private final FakeoutPlanner fakeouts;
     private final VariantPicker variants = new VariantPicker();
@@ -75,8 +77,9 @@ public final class RitualDirector implements RitualService.Presentation {
     private Instant lastServerAnnounce = Instant.EPOCH;
 
     public RitualDirector(Plugin plugin, Messages messages, Supplier<Settings> settings, DisplayService displays,
-                          EffectBudget budget, HealthMonitor health, Logger logger) {
+                          EffectBudget budget, HealthMonitor health, Logger logger, CueGuard cues) {
         this.plugin = plugin;
+        this.cues = cues;
         this.messages = messages;
         this.settings = settings;
         this.displays = displays;
@@ -247,7 +250,7 @@ public final class RitualDirector implements RitualService.Presentation {
         if (!script.isEmpty()) {
             double intensity = s.spectators().crowd().intensity(a.audience().onlookers());
             Ctx ctx = new Ctx(r, a, block, budget.allowance(), intensity);
-            script.due(local, cue -> CuePlayer.play(cue, progress, ctx));
+            script.due(local, cue -> cues.play(cue, progress, ctx));
         }
     }
 
@@ -371,7 +374,7 @@ public final class RitualDirector implements RitualService.Presentation {
             if (!r.isPreview()) messages.send(owner, verdictKey(outcome, tier, "message"), v);
             if (payout.remaining() > 0 && !owner.isDead()) {
                 messages.send(owner, "claims.held", Placeholder.unparsed("amount", Integer.toString(payout.remaining())),
-                        Placeholder.component("item", r.template().effectiveName()));
+                        Placeholder.component("item", ItemCodec.name(r.template())));
             }
         }
         ChamberMenu chamber = chambers.get(r.id());
@@ -457,7 +460,7 @@ public final class RitualDirector implements RitualService.Presentation {
         return new TagResolver[]{
                 Placeholder.unparsed("player", r.playerName()),
                 Placeholder.unparsed("amount", Integer.toString(r.verdict().inputAmount())),
-                Placeholder.component("item", r.template().effectiveName())
+                Placeholder.component("item", ItemCodec.name(r.template()))
         };
     }
 
@@ -470,7 +473,7 @@ public final class RitualDirector implements RitualService.Presentation {
                 Placeholder.unparsed("input", Integer.toString(r.verdict().inputAmount())),
                 Placeholder.unparsed("reward", Integer.toString(reward)),
                 Placeholder.unparsed("multiplier", r.verdict().multiplier().toDisplayString()),
-                Placeholder.component("item", r.template().effectiveName()),
+                Placeholder.component("item", ItemCodec.name(r.template())),
                 Placeholder.component("outcome", outcomeName),
                 Placeholder.unparsed("machine", r.machine().record().displayName())
         };

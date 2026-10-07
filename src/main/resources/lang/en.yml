@@ -70,7 +70,7 @@ offering:
       - "<gray>Offer one stack. The Void decides."
       - "<gray>The odds are the same for everyone."
       - ""
-    line: "<dark_gray>• <white><outcome></white> <dark_gray>— <rarity>"
+    line: "<dark_gray>• <white><outcome></white> <dark_gray>— <rarity> <dark_gray>(<gray><chance></gray>)"
   choose-first: "<gray>Tap an item in your inventory first."
   refused:
     empty: "<gray>Choose an item."

@@ -79,6 +79,18 @@ tasks {
             events("failed", "skipped")
             exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         }
+        // No test is skipped on purpose. MockBukkit reports unimplemented server features as
+        // "aborted", which would otherwise hide a test that never reached its assertions.
+        addTestListener(object : TestListener {
+            override fun beforeSuite(suite: TestDescriptor) {}
+            override fun beforeTest(testDescriptor: TestDescriptor) {}
+            override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) {}
+            override fun afterSuite(suite: TestDescriptor, result: TestResult) {
+                if (suite.parent == null && result.skippedTestCount > 0) {
+                    throw GradleException("${result.skippedTestCount} test(s) were skipped or aborted; every test must run.")
+                }
+            }
+        })
     }
 
     register<Test>("benchmark") {

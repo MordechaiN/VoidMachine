@@ -42,6 +42,7 @@ public final class AmbientService {
     private final Supplier<Settings> settings;
     private final Supplier<Ritualbook> book;
     private final Messages messages;
+    private final CueGuard cues;
     private final EffectBudget budget = new EffectBudget(200, 80);
     private final TickProfiler profiler = new TickProfiler(1200);
     private final RandomSource rng = RandomSource.seeded(System.nanoTime());
@@ -55,8 +56,9 @@ public final class AmbientService {
     private long voidEventStart;
 
     public AmbientService(Plugin plugin, MachineRegistry machines, Supplier<Settings> settings, Supplier<Ritualbook> book,
-                          Messages messages) {
+                          Messages messages, CueGuard cues) {
         this.plugin = plugin;
+        this.cues = cues;
         this.machines = machines;
         this.settings = settings;
         this.book = book;
@@ -100,7 +102,7 @@ public final class AmbientService {
             Script idle = theme.ambientIdle();
             if (!idle.isEmpty()) {
                 int stagger = Math.floorMod(m.id().hashCode(), Math.max(1, idle.every() == 0 ? 20 : idle.every()));
-                idle.due((int) ((tick + stagger) % Integer.MAX_VALUE), cue -> CuePlayer.play(cue, 0, ctx(m, audience, block, s)));
+                idle.due((int) ((tick + stagger) % Integer.MAX_VALUE), cue -> cues.play(cue, 0, ctx(m, audience, block, s)));
             }
             if (m == voidEventMachine) {
                 long local = tick - voidEventStart;
@@ -108,7 +110,7 @@ public final class AmbientService {
                     for (Player p : audience.players(SpectatorTier.Audience.NEAR)) messages.actionBar(p, "ambient.restless");
                 }
                 if (local < VOID_EVENT_TICKS) {
-                    theme.voidEvent().due((int) local, cue -> CuePlayer.play(cue, local / (double) VOID_EVENT_TICKS, ctx(m, audience, block, s)));
+                    theme.voidEvent().due((int) local, cue -> cues.play(cue, local / (double) VOID_EVENT_TICKS, ctx(m, audience, block, s)));
                 } else {
                     restoreCharge(m);
                     voidEventMachine = null;

@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -206,12 +207,22 @@ public final class RitualService implements CustodyService.ActiveRituals {
         rituals.put(id, r);
         byPlayer.put(admin.getUniqueId(), r);
         m.claim(id);
-        presentation.start(r);
+        try {
+            presentation.start(r);
+        } catch (RuntimeException e) {
+            logger.log(Level.WARNING, "Preview could not start", e);
+            finish(r, "preview-error");
+            return false;
+        }
         return true;
     }
 
     private void onRecordWritten(ActiveRitual r, boolean durable) {
-        if (r.state != ActiveRitual.State.PREPARING) return;
+        if (r.state != ActiveRitual.State.PREPARING) {
+            // Aborted while the record was being written (shutdown is handled by the runtime): nothing was taken.
+            if (durable && r.state == ActiveRitual.State.ABORTED) journal.delete(r.id, null);
+            return;
+        }
         if (!durable) {
             abort(r, "storage", false);
             Player p = Bukkit.getPlayer(r.playerId);
@@ -236,7 +247,15 @@ public final class RitualService implements CustodyService.ActiveRituals {
                 log(Settings.LogLevel.DEBUG, "Ritual " + r.record.shortId() + " sealed for " + r.playerName + ": "
                         + r.verdict.inputAmount() + "x " + r.record.itemKey() + " -> " + r.verdict.outcomeId());
                 Bukkit.getPluginManager().callEvent(new RitualCommitEvent(r.view()));
-                presentation.start(r);
+                try {
+                    presentation.start(r);
+                } catch (RuntimeException e) {
+                    logger.log(Level.SEVERE, "Presentation of ritual " + r.record.shortId() + " could not start; resolving it now "
+                            + "(the verdict is unaffected)", e);
+                    health.raise(HealthMonitor.Source.PRESENTATION, "a ritual presentation failed to start: " + e);
+                    resolveNow(r, "presentation-error");
+                    return;
+                }
                 audit.log(AuditLog.Event.ANIMATION_STARTED, Map.of("ritual", r.id, "ticks", r.timeline.totalTicks(),
                         "fakeout", r.fakeout == null ? "none" : r.fakeout.pattern().id()));
             }
@@ -309,7 +328,12 @@ public final class RitualService implements CustodyService.ActiveRituals {
         log(Settings.LogLevel.INFO, r.playerName + " offered " + r.verdict.inputAmount() + "x " + r.record.itemKey() + " at "
                 + r.machine.id() + ": " + r.verdict.outcomeId().toUpperCase(java.util.Locale.ROOT) + " (reward " + r.verdict.rewardAmount()
                 + (payout.remaining() > 0 ? ", " + payout.remaining() + " held" : "") + ")");
-        presentation.revealed(r, payout);
+        try {
+            presentation.revealed(r, payout);
+        } catch (RuntimeException e) {
+            logger.log(Level.WARNING, "Reveal presentation of ritual " + r.record.shortId() + " failed (the payout is done)", e);
+            health.raise(HealthMonitor.Source.PRESENTATION, "a reveal presentation failed: " + e);
+        }
     }
 
     /** Ends the ritual (reveals first if needed) and frees the machine and the player. Idempotent. */
@@ -319,8 +343,22 @@ public final class RitualService implements CustodyService.ActiveRituals {
             abort(r, reason, false);
             return;
         }
-        if (r.state == ActiveRitual.State.LIVE) reveal(r);
-        presentation.cleanup(r);
+        if (r.state == ActiveRitual.State.LIVE) {
+            try {
+                reveal(r);
+            } catch (RuntimeException e) {
+                // The record stays in the journal; the retry loop and the next join pay what is owed.
+                r.state = ActiveRitual.State.REVEALED;
+                logger.log(Level.SEVERE, "Payout of ritual " + r.record.shortId() + " (" + r.playerName + ") failed; its record is kept "
+                        + "and the reward is delivered by the retry/recovery path", e);
+                health.raise(HealthMonitor.Source.RECOVERY, "payout of ritual " + r.record.shortId() + " failed: " + e);
+            }
+        }
+        try {
+            presentation.cleanup(r);
+        } catch (RuntimeException e) {
+            logger.log(Level.WARNING, "Cleanup of ritual " + r.record.shortId() + " failed", e);
+        }
         r.state = ActiveRitual.State.DONE;
         rituals.remove(r.id);
         byPlayer.remove(r.playerId, r);
@@ -343,6 +381,9 @@ public final class RitualService implements CustodyService.ActiveRituals {
         if (r.state == ActiveRitual.State.PREPARING) return; // cannot resolve before the record is durable
         Player p = Bukkit.getPlayer(r.playerId);
         boolean wasLive = r.state == ActiveRitual.State.LIVE;
+        if (wasLive && !r.preview) {
+            log(Settings.LogLevel.INFO, "Ritual " + r.record.shortId() + " of " + r.playerName + " resolved immediately (" + reason + ")");
+        }
         finish(r, reason);
         if (wasLive && p != null && p.isOnline()) messages.send(p, "ritual.resolved-early");
     }

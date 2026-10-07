@@ -15,6 +15,7 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,11 +27,35 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfigLoadingTest {
 
-    static Map<String, Object> yaml(String resource) throws IOException {
+    /** A typed YAML mapping, so tests can navigate and mutate trees without unchecked casts. */
+    static final class YMap extends LinkedHashMap<String, Object> {
+    }
+
+    /** A typed YAML sequence. */
+    static final class YList extends ArrayList<Object> {
+    }
+
+    static YMap yaml(String resource) throws IOException {
         try (InputStream in = ConfigLoadingTest.class.getClassLoader().getResourceAsStream(resource)) {
             if (in == null) throw new IOException("missing resource " + resource);
-            return new Yaml(new SafeConstructor(new LoaderOptions())).load(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            Object tree = new Yaml(new SafeConstructor(new LoaderOptions())).load(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            if (!(typed(tree) instanceof YMap map)) throw new IOException(resource + " is not a mapping");
+            return map;
         }
+    }
+
+    private static Object typed(Object node) {
+        if (node instanceof Map<?, ?> m) {
+            YMap out = new YMap();
+            for (Map.Entry<?, ?> e : m.entrySet()) out.put(String.valueOf(e.getKey()), typed(e.getValue()));
+            return out;
+        }
+        if (node instanceof List<?> l) {
+            YList out = new YList();
+            for (Object o : l) out.add(typed(o));
+            return out;
+        }
+        return node;
     }
 
     static Ritualbook book() throws IOException {
@@ -102,8 +127,7 @@ class ConfigLoadingTest {
         Map<String, Object> rituals = yaml("rituals.yml");
         Map<String, Object> theme = section(rituals, "themes", "void");
         Map<String, Object> awaken = section(theme, "phases", "awaken");
-        @SuppressWarnings("unchecked")
-        List<Object> cues = (List<Object>) awaken.get("cues");
+        if (!(awaken.get("cues") instanceof YList cues)) throw new AssertionError("awaken.cues is not a list");
         cues.add(new LinkedHashMap<>(Map.of("at", 0, "sound", "block.does.not_exist")));
         cues.add(new LinkedHashMap<>(Map.of("at", 0, "particle", "block")));
         cues.add(new LinkedHashMap<>(Map.of("at", 0, "particle", "dust", "color", "purple")));
@@ -157,9 +181,8 @@ class ConfigLoadingTest {
         assertEquals("world_nether", dark.world());
         assertEquals(1, r.unreadable().size(), "the broken entry is reported");
         Map<String, Object> written = MachineFile.write(r.machines(), r.unreadable());
-        @SuppressWarnings("unchecked")
-        Map<String, Object> machines = (Map<String, Object>) written.get("machines");
-        assertTrue(machines.containsKey("broken"), "unreadable entries are written back, never dropped");
+        assertTrue(written.get("machines") instanceof Map<?, ?> machines && machines.containsKey("broken"),
+                "unreadable entries are written back, never dropped");
         MachineFile.Result again = MachineFile.read(written);
         assertFalse(again.wasV1());
         assertEquals(r.machines(), again.machines());
@@ -178,10 +201,12 @@ class ConfigLoadingTest {
                         r.problems().stream().map(ConfigProblem::render).toList()));
     }
 
-    @SuppressWarnings("unchecked")
     static Map<String, Object> section(Map<String, Object> root, String... path) {
         Map<String, Object> cur = root;
-        for (String p : path) cur = (Map<String, Object>) cur.get(p);
+        for (String p : path) {
+            if (!(cur.get(p) instanceof YMap next)) throw new AssertionError("no mapping at '" + p + "'");
+            cur = next;
+        }
         return cur;
     }
 
@@ -189,16 +214,18 @@ class ConfigLoadingTest {
         return section(c, "profiles", "default", "weights");
     }
 
-    @SuppressWarnings("unchecked")
     static void apply(Map<String, Object> tree, Map<String, Object> assignments) {
         for (Map.Entry<String, Object> e : assignments.entrySet()) {
             String[] parts = e.getKey().split("\\.");
             Map<String, Object> cur = tree;
             for (int i = 0; i < parts.length - 1; i++) {
-                cur = (Map<String, Object>) cur.computeIfAbsent(parts[i], k -> new LinkedHashMap<>());
+                if (!(cur.computeIfAbsent(parts[i], k -> new YMap()) instanceof YMap next)) {
+                    throw new AssertionError("'" + parts[i] + "' is not a mapping");
+                }
+                cur = next;
             }
             if (e.getValue() == null) cur.remove(parts[parts.length - 1]);
-            else cur.put(parts[parts.length - 1], e.getValue());
+            else cur.put(parts[parts.length - 1], typed(e.getValue()));
         }
     }
 }

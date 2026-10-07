@@ -11,8 +11,9 @@ import java.util.logging.Level;
 
 /**
  * Plugin entry point. All wiring and lifecycle live in {@link VoidMachineRuntime}.
+ * (Not final: MockBukkit proxies the plugin class in integration tests.)
  */
-public final class VoidMachinePlugin extends JavaPlugin {
+public class VoidMachinePlugin extends JavaPlugin {
 
     private VoidMachineRuntime runtime;
 
