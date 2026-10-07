@@ -26,7 +26,6 @@ public record Settings(
         Spectators spectators,
         Ambient ambient,
         Delivery delivery,
-        Recovery recovery,
         Logging logging,
         Stats stats
 ) {
@@ -93,9 +92,6 @@ public record Settings(
     }
 
     public record Delivery(Overflow overflow, int retrySeconds) {
-    }
-
-    public record Recovery(int unverifiedRecordRetentionDays) {
     }
 
     public enum LogLevel {

@@ -1,0 +1,290 @@
+# =============================================================================
+#  VoidMachine — English
+#  MiniMessage format: https://docs.advntr.dev/minimessage/format.html
+#  Placeholders: <player> <item> <amount> <input> <reward> <multiplier> <outcome>
+#                <machine> <seconds> — not every message has every placeholder.
+#  Keep titles and item names short: Bedrock and phone screens are narrow.
+# =============================================================================
+prefix: "<dark_gray>[<gradient:#9d4edd:#3c096c>Void</gradient><dark_gray>]</dark_gray>"
+
+generic:
+  no-permission: "<prefix> <gray>The Void does not answer you."
+
+help:
+  player:
+    - "<gradient:#9d4edd:#3c096c><b>The Void Machine</b></gradient>"
+    - "<gray>Right-click a machine, choose an item from your inventory, and offer it."
+    - "<gray>The Void decides: it may consume it, return it — or multiply it."
+    - "<white>/vm claim</white> <dark_gray>—</dark_gray> <gray>collect anything the Void is holding for you"
+    - "<white>/vm stats</white> <dark_gray>—</dark_gray> <gray>your history with the Void   <white>/vm stats server</white>"
+    - "<white>/vm top</white> <dark_gray>[rituals|jackpots|returned]</dark_gray>"
+
+# ---------------------------------------------------------------------------
+#  Offering screen
+# ---------------------------------------------------------------------------
+offering:
+  title: "<dark_purple>⬛ The Void Machine"
+  header:
+    name: "<light_purple>What will you offer?"
+    lore:
+      - "<gray>Tap an item in <white>your inventory</white>."
+      - "<gray>Nothing is taken until you press"
+      - "<gray>the glowing star."
+  empty:
+    name: "<gray>No offering chosen"
+    lore:
+      - "<dark_gray>Tap an item below."
+  preview:
+    lore:
+      - ""
+      - "<gray>Offering: <white><amount> × <item>"
+  amount:
+    one: "<white>Offer 1"
+    some: "<white>Offer <amount>"
+    all: "<white>Offer all <amount>"
+  button:
+    choose: "<gray>Choose an offering first"
+    offer: "<gradient:#e0aaff:#7b2cbf><b>Offer <amount> × <item></b>"
+    offer-lore:
+      - "<dark_gray>The Void decides."
+      - "<red>There is no going back."
+    unavailable: "<red>The Void is unstable right now"
+    config-invalid: "<red>The Void is unstable right now"
+    no-permission: "<red>The Void does not answer you"
+    profile-permission: "<red>This machine does not answer you"
+    creative: "<red>Not in creative mode"
+    world-blocked: "<red>The Void sleeps in this world"
+    machine-disabled: "<red>This machine is dormant"
+    machine-busy: "<gold>Another offering is being judged"
+    machine-resting: "<gold>The machine rests… <seconds>s"
+    player-cooldown: "<gold>You must wait <seconds>s"
+    already-in-ritual: "<gold>Your ritual is still running"
+    too-many-rituals: "<gold>Too many rituals at once — wait"
+    too-many-unclaimed: "<gold>Claim what the Void holds first: /vm claim"
+    profile-missing: "<red>This machine is misconfigured"
+  leave:
+    name: "<gray>Leave"
+  info:
+    name: "<light_purple>How does it work?"
+    lore:
+      - "<gray>Offer one stack. The Void decides."
+      - "<gray>The odds are the same for everyone."
+      - ""
+    line: "<dark_gray>• <white><outcome></white> <dark_gray>— <rarity>"
+  choose-first: "<gray>Tap an item in your inventory first."
+  refused:
+    empty: "<gray>Choose an item."
+    blocked: "<red>The Void refuses this item."
+    container: "<red>Empty it first — the Void will not take what is inside."
+    unstackable: "<red>The Void refuses tools and armour here."
+    marked: "<red>The Void refuses this item."
+  result:
+    unavailable: "<prefix> <red>The Void is unstable right now. Nothing was taken."
+    config-invalid: "<prefix> <red>The Void is unstable right now. Nothing was taken."
+    no-permission: "<prefix> <gray>The Void does not answer you."
+    profile-permission: "<prefix> <gray>This machine does not answer you."
+    creative: "<prefix> <gray>The Void ignores offerings from creative mode."
+    world-blocked: "<prefix> <gray>The Void sleeps in this world."
+    machine-disabled: "<prefix> <gray>This machine is dormant."
+    machine-busy: "<prefix> <gold>The Void is judging <white><player></white>'s offering. Wait."
+    machine-resting: "<prefix> <gold>The machine rests. <white><seconds>s</white>."
+    player-cooldown: "<prefix> <gold>The Void is not ready for you yet. <white><seconds>s</white>."
+    already-in-ritual: "<prefix> <gold>Your ritual is still running."
+    too-many-rituals: "<prefix> <gold>The Void is overwhelmed. Try again in a moment."
+    too-many-unclaimed: "<prefix> <gold>The Void still holds rewards for you. Make room or use <white>/vm claim</white>."
+    offering-changed: "<prefix> <gray>Your offering moved. Choose it again."
+    offering-refused: "<prefix> <red>The Void refuses this item."
+    cancelled-by-plugin: "<prefix> <gray>Something prevents the ritual."
+    bad-amount: "<prefix> <gray>Choose how many to offer."
+    profile-missing: "<prefix> <red>This machine is misconfigured. Tell an admin."
+
+# ---------------------------------------------------------------------------
+#  Ritual
+# ---------------------------------------------------------------------------
+ritual:
+  listening: "<dark_purple><i>The Void is listening…"
+  offering-moved: "<gray>Your offering moved. Nothing was taken."
+  unavailable: "<prefix> <red>The Void is unstable right now. Nothing was taken."
+  resolved-early: "<prefix> <gray>The ritual was cut short — the Void's verdict stands."
+  destabilize: "<red><i>…wait. The Void is not finished."
+  bar:
+    awaken: "<dark_purple>The Void awakens…"
+    capture: "<light_purple><amount> × <item></light_purple> <dark_purple>sinks into the Void"
+    stir: "<dark_purple>The Void considers the offering…"
+    ramp: "<light_purple>The Void gathers itself…"
+    instability: "<red>The machine is unstable…"
+    silence: "<dark_gray>. . ."
+    destabilize: "<red>…the Void is not finished"
+  narrate:
+    offer: "<gray><white><player></white> offers <white><amount> × <item></white> to the Void…"
+    crowd: "<dark_purple><i>The Void feeds on your attention…"
+    verdict:
+      loss: "<gray>The Void consumed <white><player></white>'s offering."
+      partial: "<gray>The Void took its tithe from <white><player></white>."
+      neutral: "<gray>The Void returned <white><player></white>'s offering."
+      win: "<green><white><player></white>'s offering came back <b>×<multiplier></b>!"
+      great: "<gold><white><player></white>'s offering came back <b>×<multiplier></b>!"
+      jackpot: "<light_purple><b>JACKPOT</b> — <white><player></white> drew <white><reward> × <item></white> from the Void!"
+
+# ---------------------------------------------------------------------------
+#  Verdicts — one block per outcome id (falls back to verdict.tier.<tier>).
+# ---------------------------------------------------------------------------
+verdict:
+  consumed:
+    bar: "<dark_red>Consumed"
+    title: "<dark_red><b>CONSUMED"
+    subtitle: "<gray>The Void took everything."
+    message: "<prefix> <gray>The Void consumed <white><input> × <item></white>. Nothing returns."
+  tithe:
+    bar: "<gold>The Void takes its tithe"
+    title: "<gold><b>TITHE"
+    subtitle: "<gray><reward> of <input> return to you"
+    message: "<prefix> <gold>The Void takes its tithe. <white><reward> × <item></white> return to you."
+  returned:
+    bar: "<white>Returned"
+    title: "<white><b>RETURNED"
+    subtitle: "<gray>The Void was unmoved."
+    message: "<prefix> <gray>The Void returns your offering: <white><reward> × <item></white>."
+  doubled:
+    bar: "<green><b>Doubled ×2"
+    title: "<green><b>DOUBLED"
+    subtitle: "<white><reward> × <item>"
+    message: "<prefix> <green>The Void was generous: <white><reward> × <item></white>!"
+  tripled:
+    bar: "<gold><b>Tripled ×3"
+    title: "<gold><b>TRIPLED"
+    subtitle: "<white><reward> × <item>"
+    message: "<prefix> <gold>A surge of impossible power: <white><reward> × <item></white>!"
+  jackpot:
+    bar: "<light_purple><b>JACKPOT ×5"
+    title: "<light_purple><b>JACKPOT"
+    subtitle: "<white><reward> × <item>"
+    message: "<prefix> <light_purple><b>The Void awakens.</b> <white><reward> × <item></white> pour out of the abyss."
+  tier:
+    loss:
+      bar: "<dark_red><outcome>"
+      title: "<dark_red><b><outcome>"
+      subtitle: "<gray>The Void took everything."
+      message: "<prefix> <gray><outcome>: the Void took <white><input> × <item></white>."
+    partial:
+      bar: "<gold><outcome>"
+      title: "<gold><b><outcome>"
+      subtitle: "<gray><reward> of <input> return to you"
+      message: "<prefix> <gold><outcome>: <white><reward> × <item></white> return to you."
+    neutral:
+      bar: "<white><outcome>"
+      title: "<white><b><outcome>"
+      subtitle: "<gray>The Void was unmoved."
+      message: "<prefix> <gray><outcome>: <white><reward> × <item></white> return to you."
+    win:
+      bar: "<green><b><outcome> ×<multiplier>"
+      title: "<green><b><outcome>"
+      subtitle: "<white><reward> × <item>"
+      message: "<prefix> <green><outcome>: <white><reward> × <item></white>!"
+    great:
+      bar: "<gold><b><outcome> ×<multiplier>"
+      title: "<gold><b><outcome>"
+      subtitle: "<white><reward> × <item>"
+      message: "<prefix> <gold><outcome>: <white><reward> × <item></white>!"
+    jackpot:
+      bar: "<light_purple><b><outcome> ×<multiplier>"
+      title: "<light_purple><b><outcome>"
+      subtitle: "<white><reward> × <item>"
+      message: "<prefix> <light_purple><b><outcome></b>: <white><reward> × <item></white>!"
+
+outcomes:
+  consumed: { name: "Consumed" }
+  tithe: { name: "Tithe" }
+  returned: { name: "Returned" }
+  doubled: { name: "Doubled" }
+  tripled: { name: "Tripled" }
+  jackpot: { name: "Jackpot" }
+
+rarity:
+  common: "<gray>common"
+  uncommon: "<white>uncommon"
+  rare: "<gold>rare"
+  legendary: "<light_purple>legendary"
+
+# ---------------------------------------------------------------------------
+#  Jackpots
+# ---------------------------------------------------------------------------
+jackpot:
+  subtitle: "<white><reward> × <item>"
+  spectator-title: "<light_purple><b>JACKPOT"
+  spectator-subtitle: "<white><player></white> <gray>woke the Void"
+  void_ascension:
+    bar: "<white><b>VOID ASCENSION</b> <gray>— ×<multiplier>"
+    title: "<white><b>VOID ASCENSION"
+    lore: "<prefix> <white>A pillar of light climbs out of the machine. <white><reward> × <item></white> descend with it."
+  the_devourer:
+    bar: "<dark_red><b>THE DEVOURER</b> <gray>— ×<multiplier>"
+    title: "<dark_red><b>THE DEVOURER"
+    lore: "<prefix> <red>The Devourer is sated — and generous. <white><reward> × <item></white>."
+  black_star:
+    bar: "<dark_purple><b>BLACK STAR</b> <gray>— ×<multiplier>"
+    title: "<dark_purple><b>BLACK STAR"
+    lore: "<prefix> <light_purple>A black star collapsed into light. <white><reward> × <item></white>."
+  heart_of_the_void:
+    bar: "<red><b>HEART OF THE VOID</b> <gray>— ×<multiplier>"
+    title: "<red><b>HEART OF THE VOID"
+    lore: "<prefix> <red>The machine has a heart, and it beat for you. <white><reward> × <item></white>."
+  null_crown:
+    bar: "<yellow><b>THE NULL CROWN</b> <gray>— ×<multiplier>"
+    title: "<yellow><b>THE NULL CROWN"
+    lore: "<prefix> <yellow>The Void crowns you. Few have worn it. <white><reward> × <item></white>."
+
+announce:
+  win: "<prefix> <green><white><player></white>'s offering of <white><input> × <item></white> came back <b>×<multiplier></b>."
+  great: "<prefix> <gold><white><player></white> tripled <white><input> × <item></white> at <white><machine></white>!"
+  jackpot: "<prefix> <light_purple><b>★ JACKPOT ★</b> <white><player></white> drew <white><reward> × <item></white> from the Void at <white><machine></white>!"
+
+# ---------------------------------------------------------------------------
+#  Held rewards and recovery (players never see technical details)
+# ---------------------------------------------------------------------------
+claims:
+  held: "<prefix> <gold>Your inventory is full — the Void holds <white><amount> × <item></white> for you. Make room; they will come back on their own."
+  returned: "<prefix> <green>The Void returns <white><amount> × <item></white> it was holding for you."
+  waiting: "<prefix> <gold>The Void still holds <white><amount> × <item></white> for you. Make room."
+  no-room: "<prefix> <gold>The Void holds <white><amount></white> items for you, but your inventory is full."
+  nothing: "<prefix> <gray>The Void holds nothing for you."
+recovery:
+  interrupted: "<prefix> <dark_purple>Your ritual was interrupted — but the Void had already decided: <white><outcome></white>."
+  paid: "<prefix> <green>The Void returned what it was holding: <white><amount> × <item></white>."
+  consumed: "<prefix> <gray>Your offering of <white><amount> × <item></white> was consumed."
+  not-taken: "<prefix> <gray>The ritual never began. Your <white><amount> × <item></white> was never taken."
+  problem: "<prefix> <gray>The Void is unsettled. An admin has been notified — nothing of yours is lost."
+
+stats:
+  none: "<prefix> <gray>You have not faced the Void yet."
+  player: |-
+    <gradient:#9d4edd:#3c096c><b>Your history with the Void</b></gradient>
+    <dark_gray>• <gray>Rituals: <white><rituals></white>   Wins: <green><wins></green>   Jackpots: <light_purple><jackpots>
+    <dark_gray>• <gray>Offered: <white><offered></white>   Returned: <white><returned>
+    <dark_gray>• <gray>Biggest result: <white><biggest>
+    <dark_gray>• <gray>Favourite machine: <white><machine>
+  server: |-
+    <gradient:#9d4edd:#3c096c><b>The Void remembers</b></gradient>
+    <dark_gray>• <gray>Rituals: <white><rituals></white>   Jackpots: <light_purple><jackpots></light_purple>   Fakeouts: <white><fakeouts>
+    <dark_gray>• <gray>Offered: <white><offered></white>   Returned: <white><returned>
+    <dark_gray>• <gray>Legendary result: <white><biggest>
+    <dark_gray>• <gray>Busiest machine: <white><machine></white>   Busiest hour: <white><hour>
+    <dark_gray>• <gray>Average ritual: <white><duration>s</white>, average crowd: <white><crowd>
+top:
+  header: "<gradient:#9d4edd:#3c096c><b>The most reckless souls</b></gradient> <dark_gray>(<metric>)"
+  entry: "<dark_gray>#<rank> <white><player></white> <dark_gray>— <light_purple><value>"
+
+chamber:
+  title: "<dark_purple>⬛ The Ritual Chamber"
+  status:
+    capture: "<light_purple><amount> × <item> sinks…"
+    stir: "<dark_purple>The Void stirs…"
+    instability: "<red>Unstable…"
+    silence: "<dark_gray>. . ."
+
+machine:
+  protected: "<gray>The Void Machine cannot be broken."
+  protected-admin: "<prefix> <gray>This is machine <white><machine></white>. Remove it with <white>/vm admin remove <machine></white>."
+
+ambient:
+  restless: "<dark_purple><i>The Void grows restless…"

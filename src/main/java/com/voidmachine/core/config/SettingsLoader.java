@@ -69,7 +69,6 @@ public final class SettingsLoader {
         Settings.Spectators spectators = spectators(root.section("spectators"));
         Settings.Ambient ambient = ambient(root.section("ambient"));
         Settings.Delivery delivery = delivery(root.section("delivery"));
-        Settings.Recovery recovery = recovery(root.section("recovery"));
         Settings.Logging logging = logging(root.section("logging"));
         Settings.Stats stats = stats(root.section("stats"));
 
@@ -89,7 +88,7 @@ public final class SettingsLoader {
         root.reportUnknownKeys();
         if (p.hasErrors()) return new Result(Optional.empty(), p.all());
         return new Result(Optional.of(new Settings(language, machines, offering, limits, cooldowns, outcomes, profiles,
-                presentation, spectators, ambient, delivery, recovery, logging, stats)), p.all());
+                presentation, spectators, ambient, delivery, logging, stats)), p.all());
     }
 
     // ------------------------------------------------------------------------------------------
@@ -339,10 +338,6 @@ public final class SettingsLoader {
     private static Settings.Delivery delivery(Node n) {
         String overflow = n.choice("overflow", "hold", List.of("hold", "drop"));
         return new Settings.Delivery(Settings.Overflow.valueOf(overflow.toUpperCase(Locale.ROOT)), n.integer("retry-seconds", 5, 1, 600));
-    }
-
-    private static Settings.Recovery recovery(Node n) {
-        return new Settings.Recovery(n.integer("unverified-record-retention-days", 0, 0, 3_650));
     }
 
     private static Settings.Logging logging(Node n) {

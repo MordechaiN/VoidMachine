@@ -80,7 +80,9 @@ public final class CustodyEngine {
         /** Ritual record requires a capture mark but the ledger has none — nothing is owed. */
         NOT_CAPTURED,
         /** Ledger unreadable; nothing was paid. */
-        LEDGER_CORRUPT
+        LEDGER_CORRUPT,
+        /** The record awaits an admin decision and is never paid automatically. */
+        ADMIN_REVIEW
     }
 
     public record PayoutResult(PayoutStatus status, int given, int paidTotal, int remaining) {
@@ -90,6 +92,7 @@ public final class CustodyEngine {
      * Pays as much of the remaining reward as fits (and at most {@code maxNow}).
      */
     public static <T> PayoutResult pay(CustodyPlayer<T> player, JournalRecord record, T template, int maxNow) {
+        if (!record.kind().automatic()) return new PayoutResult(PayoutStatus.ADMIN_REVIEW, 0, 0, 0);
         PlayerLedger ledger;
         try {
             ledger = PlayerLedger.decode(player.readLedger());
@@ -156,7 +159,9 @@ public final class CustodyEngine {
         /** Fully paid according to the live ledger only: keep the record until a fresh load proves it. */
         AWAIT_VERIFICATION,
         /** Ledger says more was paid than owed (should be impossible): finalize, alert admins. */
-        FINALIZE_OVERPAID
+        FINALIZE_OVERPAID,
+        /** Legacy record awaiting an admin decision: leave it alone. */
+        ADMIN_REVIEW
     }
 
     public record Decision(JournalRecord record, Action action, int paid, int remaining) {
@@ -164,6 +169,7 @@ public final class CustodyEngine {
 
     /** Pure decision for one record. */
     public static Decision decide(JournalRecord record, PlayerLedger.Entry entry, Mode mode) {
+        if (!record.kind().automatic()) return new Decision(record, Action.ADMIN_REVIEW, 0, 0);
         if (entry == null) {
             if (record.requiresCaptureMark()) {
                 return new Decision(record, Action.DISCARD_NOT_CAPTURED, 0, 0);

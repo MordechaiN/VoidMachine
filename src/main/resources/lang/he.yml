@@ -1,0 +1,275 @@
+# =============================================================================
+#  VoidMachine — עברית
+#  פורמט MiniMessage. המשתנים: <player> <item> <amount> <input> <reward>
+#  <multiplier> <outcome> <machine> <seconds>
+#  שחקני Bedrock מקבלים את הטקסט בסדר תצוגה הפוך אוטומטית (language.bedrock-rtl-fix).
+#  כתבו כאן עברית רגילה, בסדר קריאה רגיל.
+# =============================================================================
+prefix: "<dark_gray>[<gradient:#9d4edd:#3c096c>הריק</gradient><dark_gray>]</dark_gray>"
+
+generic:
+  no-permission: "<prefix> <gray>הריק לא עונה לך."
+
+help:
+  player:
+    - "<gradient:#9d4edd:#3c096c><b>מכונת הריק</b></gradient>"
+    - "<gray>לחצו קליק ימני על המכונה, בחרו פריט מהתיק שלכם והקריבו אותו."
+    - "<gray>הריק מחליט: הוא עלול לבלוע אותו, להחזיר אותו — או להכפיל אותו."
+    - "<white>/vm claim</white> <dark_gray>—</dark_gray> <gray>לקבל את מה שהריק שומר בשבילכם"
+    - "<white>/vm stats</white> <dark_gray>—</dark_gray> <gray>ההיסטוריה שלכם עם הריק   <white>/vm stats server</white>"
+    - "<white>/vm top</white> <dark_gray>[rituals|jackpots|returned]</dark_gray>"
+
+offering:
+  title: "<dark_purple>⬛ מכונת הריק"
+  header:
+    name: "<light_purple>מה תקריבו?"
+    lore:
+      - "<gray>געו בפריט <white>בתיק שלכם</white>."
+      - "<gray>שום דבר לא נלקח עד שתלחצו"
+      - "<gray>על הכוכב הזוהר."
+  empty:
+    name: "<gray>עוד לא נבחר קורבן"
+    lore:
+      - "<dark_gray>געו בפריט למטה."
+  preview:
+    lore:
+      - ""
+      - "<gray>הקורבן: <white><amount> × <item>"
+  amount:
+    one: "<white>להקריב 1"
+    some: "<white>להקריב <amount>"
+    all: "<white>להקריב את כל ה-<amount>"
+  button:
+    choose: "<gray>קודם בחרו קורבן"
+    offer: "<gradient:#e0aaff:#7b2cbf><b>להקריב <amount> × <item></b>"
+    offer-lore:
+      - "<dark_gray>הריק יחליט."
+      - "<red>אין דרך חזרה."
+    unavailable: "<red>הריק לא יציב כרגע"
+    config-invalid: "<red>הריק לא יציב כרגע"
+    no-permission: "<red>הריק לא עונה לך"
+    profile-permission: "<red>המכונה הזאת לא עונה לך"
+    creative: "<red>לא במצב יצירתי"
+    world-blocked: "<red>הריק ישן בעולם הזה"
+    machine-disabled: "<red>המכונה רדומה"
+    machine-busy: "<gold>קורבן אחר נשפט עכשיו"
+    machine-resting: "<gold>המכונה נחה… <seconds> שניות"
+    player-cooldown: "<gold>חכו עוד <seconds> שניות"
+    already-in-ritual: "<gold>הטקס שלכם עדיין רץ"
+    too-many-rituals: "<gold>יותר מדי טקסים בבת אחת — חכו"
+    too-many-unclaimed: "<gold>קודם קחו את מה שהריק שומר: /vm claim"
+    profile-missing: "<red>המכונה מוגדרת לא נכון"
+  leave:
+    name: "<gray>לצאת"
+  info:
+    name: "<light_purple>איך זה עובד?"
+    lore:
+      - "<gray>מקריבים ערימה אחת. הריק מחליט."
+      - "<gray>הסיכויים זהים לכולם."
+      - ""
+    line: "<dark_gray>• <white><outcome></white> <dark_gray>— <rarity>"
+  choose-first: "<gray>קודם געו בפריט בתיק שלכם."
+  refused:
+    empty: "<gray>בחרו פריט."
+    blocked: "<red>הריק מסרב לפריט הזה."
+    container: "<red>רוקנו אותו קודם — הריק לא ייקח את מה שבפנים."
+    unstackable: "<red>הריק לא מקבל כאן כלים ושריון."
+    marked: "<red>הריק מסרב לפריט הזה."
+  result:
+    unavailable: "<prefix> <red>הריק לא יציב כרגע. שום דבר לא נלקח."
+    config-invalid: "<prefix> <red>הריק לא יציב כרגע. שום דבר לא נלקח."
+    no-permission: "<prefix> <gray>הריק לא עונה לך."
+    profile-permission: "<prefix> <gray>המכונה הזאת לא עונה לך."
+    creative: "<prefix> <gray>הריק מתעלם מקורבנות במצב יצירתי."
+    world-blocked: "<prefix> <gray>הריק ישן בעולם הזה."
+    machine-disabled: "<prefix> <gray>המכונה הזאת רדומה."
+    machine-busy: "<prefix> <gold>הריק שופט עכשיו את הקורבן של <white><player></white>. חכו."
+    machine-resting: "<prefix> <gold>המכונה נחה. <white><seconds></white> שניות."
+    player-cooldown: "<prefix> <gold>הריק עוד לא מוכן בשבילך. <white><seconds></white> שניות."
+    already-in-ritual: "<prefix> <gold>הטקס שלך עדיין רץ."
+    too-many-rituals: "<prefix> <gold>הריק עמוס. נסו שוב עוד רגע."
+    too-many-unclaimed: "<prefix> <gold>הריק עדיין שומר בשבילך פרסים. פנו מקום או כתבו <white>/vm claim</white>."
+    offering-changed: "<prefix> <gray>הקורבן שלך זז. בחרו אותו שוב."
+    offering-refused: "<prefix> <red>הריק מסרב לפריט הזה."
+    cancelled-by-plugin: "<prefix> <gray>משהו מונע את הטקס."
+    bad-amount: "<prefix> <gray>בחרו כמה להקריב."
+    profile-missing: "<prefix> <red>המכונה מוגדרת לא נכון. ספרו לאדמין."
+
+ritual:
+  listening: "<dark_purple><i>הריק מקשיב…"
+  offering-moved: "<gray>הקורבן שלך זז. שום דבר לא נלקח."
+  unavailable: "<prefix> <red>הריק לא יציב כרגע. שום דבר לא נלקח."
+  resolved-early: "<prefix> <gray>הטקס נקטע — אבל ההחלטה של הריק עומדת."
+  destabilize: "<red><i>…רגע. הריק עוד לא סיים."
+  bar:
+    awaken: "<dark_purple>הריק מתעורר…"
+    capture: "<light_purple><amount> × <item></light_purple> <dark_purple>שוקעים אל הריק"
+    stir: "<dark_purple>הריק שוקל את הקורבן…"
+    ramp: "<light_purple>הריק אוסף את כוחו…"
+    instability: "<red>המכונה לא יציבה…"
+    silence: "<dark_gray>. . ."
+    destabilize: "<red>…הריק עוד לא סיים"
+  narrate:
+    offer: "<gray><white><player></white> מקריב <white><amount> × <item></white> לריק…"
+    crowd: "<dark_purple><i>הריק ניזון מתשומת הלב שלכם…"
+    verdict:
+      loss: "<gray>הריק בלע את הקורבן של <white><player></white>."
+      partial: "<gray>הריק לקח את המעשר שלו מ<white><player></white>."
+      neutral: "<gray>הריק החזיר את הקורבן של <white><player></white>."
+      win: "<green>הקורבן של <white><player></white> חזר <b>פי <multiplier></b>!"
+      great: "<gold>הקורבן של <white><player></white> חזר <b>פי <multiplier></b>!"
+      jackpot: "<light_purple><b>ג'קפוט</b> — <white><player></white> שלף <white><reward> × <item></white> מתוך הריק!"
+
+verdict:
+  consumed:
+    bar: "<dark_red>נבלע"
+    title: "<dark_red><b>נבלע"
+    subtitle: "<gray>הריק לקח הכול."
+    message: "<prefix> <gray>הריק בלע <white><input> × <item></white>. שום דבר לא חוזר."
+  tithe:
+    bar: "<gold>הריק לוקח את המעשר שלו"
+    title: "<gold><b>מעשר"
+    subtitle: "<gray><reward> מתוך <input> חוזרים אליך"
+    message: "<prefix> <gold>הריק לוקח את המעשר שלו. <white><reward> × <item></white> חוזרים אליך."
+  returned:
+    bar: "<white>הוחזר"
+    title: "<white><b>הוחזר"
+    subtitle: "<gray>הריק לא התרגש."
+    message: "<prefix> <gray>הריק מחזיר את הקורבן שלך: <white><reward> × <item></white>."
+  doubled:
+    bar: "<green><b>הוכפל ×2"
+    title: "<green><b>הוכפל"
+    subtitle: "<white><reward> × <item>"
+    message: "<prefix> <green>הריק היה נדיב: <white><reward> × <item></white>!"
+  tripled:
+    bar: "<gold><b>פי שלושה ×3"
+    title: "<gold><b>פי שלושה"
+    subtitle: "<white><reward> × <item>"
+    message: "<prefix> <gold>פרץ של כוח בלתי אפשרי: <white><reward> × <item></white>!"
+  jackpot:
+    bar: "<light_purple><b>ג'קפוט ×5"
+    title: "<light_purple><b>ג'קפוט"
+    subtitle: "<white><reward> × <item>"
+    message: "<prefix> <light_purple><b>הריק התעורר.</b> <white><reward> × <item></white> נשפכים מתוך התהום."
+  tier:
+    loss:
+      bar: "<dark_red><outcome>"
+      title: "<dark_red><b><outcome>"
+      subtitle: "<gray>הריק לקח הכול."
+      message: "<prefix> <gray><outcome>: הריק לקח <white><input> × <item></white>."
+    partial:
+      bar: "<gold><outcome>"
+      title: "<gold><b><outcome>"
+      subtitle: "<gray><reward> מתוך <input> חוזרים אליך"
+      message: "<prefix> <gold><outcome>: <white><reward> × <item></white> חוזרים אליך."
+    neutral:
+      bar: "<white><outcome>"
+      title: "<white><b><outcome>"
+      subtitle: "<gray>הריק לא התרגש."
+      message: "<prefix> <gray><outcome>: <white><reward> × <item></white> חוזרים אליך."
+    win:
+      bar: "<green><b><outcome> ×<multiplier>"
+      title: "<green><b><outcome>"
+      subtitle: "<white><reward> × <item>"
+      message: "<prefix> <green><outcome>: <white><reward> × <item></white>!"
+    great:
+      bar: "<gold><b><outcome> ×<multiplier>"
+      title: "<gold><b><outcome>"
+      subtitle: "<white><reward> × <item>"
+      message: "<prefix> <gold><outcome>: <white><reward> × <item></white>!"
+    jackpot:
+      bar: "<light_purple><b><outcome> ×<multiplier>"
+      title: "<light_purple><b><outcome>"
+      subtitle: "<white><reward> × <item>"
+      message: "<prefix> <light_purple><b><outcome></b>: <white><reward> × <item></white>!"
+
+outcomes:
+  consumed: { name: "נבלע" }
+  tithe: { name: "מעשר" }
+  returned: { name: "הוחזר" }
+  doubled: { name: "הוכפל" }
+  tripled: { name: "פי שלושה" }
+  jackpot: { name: "ג'קפוט" }
+
+rarity:
+  common: "<gray>נפוץ"
+  uncommon: "<white>לא נפוץ"
+  rare: "<gold>נדיר"
+  legendary: "<light_purple>אגדי"
+
+jackpot:
+  subtitle: "<white><reward> × <item>"
+  spectator-title: "<light_purple><b>ג'קפוט"
+  spectator-subtitle: "<white><player></white> <gray>העיר את הריק"
+  void_ascension:
+    bar: "<white><b>עליית הריק</b> <gray>— ×<multiplier>"
+    title: "<white><b>עליית הריק"
+    lore: "<prefix> <white>עמוד של אור מטפס מתוך המכונה. <white><reward> × <item></white> יורדים איתו."
+  the_devourer:
+    bar: "<dark_red><b>הבולע</b> <gray>— ×<multiplier>"
+    title: "<dark_red><b>הבולע"
+    lore: "<prefix> <red>הבולע שבע — והוא נדיב. <white><reward> × <item></white>."
+  black_star:
+    bar: "<dark_purple><b>הכוכב השחור</b> <gray>— ×<multiplier>"
+    title: "<dark_purple><b>הכוכב השחור"
+    lore: "<prefix> <light_purple>כוכב שחור קרס לתוך אור. <white><reward> × <item></white>."
+  heart_of_the_void:
+    bar: "<red><b>לב הריק</b> <gray>— ×<multiplier>"
+    title: "<red><b>לב הריק"
+    lore: "<prefix> <red>למכונה יש לב, והוא פעם בשבילך. <white><reward> × <item></white>."
+  null_crown:
+    bar: "<yellow><b>כתר האין</b> <gray>— ×<multiplier>"
+    title: "<yellow><b>כתר האין"
+    lore: "<prefix> <yellow>הריק מכתיר אותך. מעטים ענדו אותו. <white><reward> × <item></white>."
+
+announce:
+  win: "<prefix> <green>הקורבן של <white><player></white> — <white><input> × <item></white> — חזר <b>פי <multiplier></b>."
+  great: "<prefix> <gold><white><player></white> שילש <white><input> × <item></white> במכונה <white><machine></white>!"
+  jackpot: "<prefix> <light_purple><b>★ ג'קפוט ★</b> <white><player></white> שלף <white><reward> × <item></white> מתוך הריק במכונה <white><machine></white>!"
+
+claims:
+  held: "<prefix> <gold>התיק שלך מלא — הריק שומר בשבילך <white><amount> × <item></white>. פנו מקום והם יחזרו לבד."
+  returned: "<prefix> <green>הריק מחזיר <white><amount> × <item></white> שהוא שמר בשבילך."
+  waiting: "<prefix> <gold>הריק עדיין שומר בשבילך <white><amount> × <item></white>. פנו מקום."
+  no-room: "<prefix> <gold>הריק שומר בשבילך <white><amount></white> פריטים, אבל התיק שלך מלא."
+  nothing: "<prefix> <gray>הריק לא שומר שום דבר בשבילך."
+recovery:
+  interrupted: "<prefix> <dark_purple>הטקס שלך נקטע — אבל הריק כבר החליט: <white><outcome></white>."
+  paid: "<prefix> <green>הריק החזיר את מה שהוא שמר: <white><amount> × <item></white>."
+  consumed: "<prefix> <gray>הקורבן שלך, <white><amount> × <item></white>, נבלע."
+  not-taken: "<prefix> <gray>הטקס לא התחיל. <white><amount> × <item></white> שלך לא נלקחו."
+  problem: "<prefix> <gray>הריק לא רגוע. אדמין קיבל הודעה — שום דבר שלך לא אבד."
+
+stats:
+  none: "<prefix> <gray>עוד לא עמדת מול הריק."
+  player: |-
+    <gradient:#9d4edd:#3c096c><b>ההיסטוריה שלך עם הריק</b></gradient>
+    <dark_gray>• <gray>טקסים: <white><rituals></white>   ניצחונות: <green><wins></green>   ג'קפוטים: <light_purple><jackpots>
+    <dark_gray>• <gray>הוקרבו: <white><offered></white>   חזרו: <white><returned>
+    <dark_gray>• <gray>התוצאה הגדולה ביותר: <white><biggest>
+    <dark_gray>• <gray>המכונה האהובה: <white><machine>
+  server: |-
+    <gradient:#9d4edd:#3c096c><b>הריק זוכר</b></gradient>
+    <dark_gray>• <gray>טקסים: <white><rituals></white>   ג'קפוטים: <light_purple><jackpots></light_purple>   הטעיות: <white><fakeouts>
+    <dark_gray>• <gray>הוקרבו: <white><offered></white>   חזרו: <white><returned>
+    <dark_gray>• <gray>תוצאה אגדית: <white><biggest>
+    <dark_gray>• <gray>המכונה העמוסה: <white><machine></white>   השעה העמוסה: <white><hour>
+    <dark_gray>• <gray>טקס ממוצע: <white><duration></white> שניות, קהל ממוצע: <white><crowd>
+top:
+  header: "<gradient:#9d4edd:#3c096c><b>הנשמות הנועזות ביותר</b></gradient> <dark_gray>(<metric>)"
+  entry: "<dark_gray>#<rank> <white><player></white> <dark_gray>— <light_purple><value>"
+
+chamber:
+  title: "<dark_purple>⬛ חדר הטקס"
+  status:
+    capture: "<light_purple><amount> × <item> שוקעים…"
+    stir: "<dark_purple>הריק מתעורר…"
+    instability: "<red>לא יציב…"
+    silence: "<dark_gray>. . ."
+
+machine:
+  protected: "<gray>אי אפשר לשבור את מכונת הריק."
+  protected-admin: "<prefix> <gray>זו המכונה <white><machine></white>. כדי להסיר: <white>/vm admin remove <machine></white>."
+
+ambient:
+  restless: "<dark_purple><i>הריק נעשה חסר מנוחה…"

@@ -82,6 +82,13 @@ public record JournalRecord(
         return kind.requiresCaptureMark();
     }
 
+    /** Legacy record awaiting an admin decision: reward 0 until refunded. */
+    public static JournalRecord review(UUID id, UUID playerId, String playerName, long now, String itemKey,
+                                       byte[] itemTemplate, int inputAmount, String note) {
+        return new JournalRecord(id, 1, RecordKind.REVIEW, playerId, playerName, "-", "-", "-", now, itemKey,
+                itemTemplate.clone(), inputAmount, "review", OutcomeTier.LOSS, Multiplier.ZERO, 0, note);
+    }
+
     /**
      * Admin refund: the Void returns the offering instead of its verdict. Only meaningful when the
      * verdict paid less than the offering.
@@ -90,7 +97,8 @@ public record JournalRecord(
         if (rewardAmount >= inputAmount) {
             throw new IllegalStateException("verdict already returns at least the offering");
         }
-        return new JournalRecord(ritualId, revision + 1, kind, playerId, playerName, machineId,
+        RecordKind newKind = kind == RecordKind.REVIEW ? RecordKind.CLAIM : kind;
+        return new JournalRecord(ritualId, revision + 1, newKind, playerId, playerName, machineId,
                 machineLocation, profileId, createdAtMillis, itemKey, itemTemplate, inputAmount,
                 "refund", OutcomeTier.NEUTRAL, Multiplier.ONE, inputAmount,
                 (note.isEmpty() ? "" : note + ";") + "refunded-by=" + byWhom + ";original=" + outcomeId);

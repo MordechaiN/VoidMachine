@@ -10,62 +10,58 @@
 name: VoidMachine
 version: '${version}'
 main: com.voidmachine.VoidMachinePlugin
-api-version: '1.21'
+api-version: '26.2'
 folia-supported: false
 load: POSTWORLD
 author: Mordechai Neeman
-authors:
-  - Mordechai Neeman
-contributors:
-  - "(your name here — PRs welcome)"
-description: A brutal item-sink ritual machine. Players sacrifice physical items into the Void for a chance at return, multiplication, or oblivion.
+description: A ritual machine that swallows an offering and decides its fate. Crash-safe custody, cinematic reveals, Bedrock-friendly.
 website: https://github.com/MordechaiNeeman/VoidMachine
+# Optional: used only to detect Bedrock players precisely. Without them a UUID heuristic is used.
 softdepend:
   - floodgate
-  - DiscordSRV
-  - PlaceholderAPI
+  - Geyser-Spigot
 
 commands:
   voidmachine:
-    description: Main VoidMachine command.
-    usage: /voidmachine <admin|stats|reload>
-    aliases: [vm, void]
-    permission: voidmachine.use
+    description: VoidMachine player and admin commands.
+    usage: /voidmachine help
+    aliases: [vm]
 
 permissions:
   voidmachine.*:
-    description: Grants all VoidMachine permissions.
+    description: Every VoidMachine permission.
     default: op
     children:
       voidmachine.use: true
       voidmachine.stats: true
-      voidmachine.history: true
-      voidmachine.top: true
-      voidmachine.reload: true
-      voidmachine.bypass.cooldown: true
+      voidmachine.claim: true
       voidmachine.notify: true
+      voidmachine.bypass.cooldown: true
       voidmachine.admin: true
   voidmachine.use:
-    description: Open and use the Void Machine.
+    description: Offer items to a Void Machine.
     default: true
   voidmachine.stats:
-    description: View server lifetime sacrifice statistics.
+    description: View your own statistics, server statistics and leaderboards.
     default: true
-  voidmachine.history:
-    description: View recent machine history.
+  voidmachine.claim:
+    description: Collect rewards the Void is holding for you (e.g. after a full inventory).
     default: true
-  voidmachine.top:
-    description: View global leaderboards.
-    default: true
-  voidmachine.reload:
-    description: Reload plugin configuration.
-    default: op
-  voidmachine.bypass.cooldown:
-    description: Bypass machine cooldowns.
-    default: op
   voidmachine.notify:
-    description: Receive global jackpot notifications.
+    description: Receive server-wide announcements of great wins and jackpots.
     default: true
+  voidmachine.bypass.cooldown:
+    description: Ignore player and machine cooldowns.
+    default: op
   voidmachine.admin:
-    description: Administrative commands.
+    description: Full administration (create/remove machines, resolve and refund records, reload).
+    default: op
+    children:
+      voidmachine.admin.inspect: true
+      voidmachine.admin.alerts: true
+  voidmachine.admin.inspect:
+    description: Read-only administration (list, status, pending, inspect, diagnostics, odds).
+    default: op
+  voidmachine.admin.alerts:
+    description: Receive recovery and safety alerts in chat (always also written to the server log).
     default: op

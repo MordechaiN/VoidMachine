@@ -209,15 +209,6 @@ delivery:
   retry-seconds: 5
 
 # -----------------------------------------------------------------------------
-#  Recovery
-# -----------------------------------------------------------------------------
-recovery:
-  # Paid-out ritual records are kept until the player's next login proves the payout
-  # was saved. Records of players who never return can be pruned after this many
-  # days (0 = never prune).
-  unverified-record-retention-days: 0
-
-# -----------------------------------------------------------------------------
 #  Logging
 # -----------------------------------------------------------------------------
 logging:
