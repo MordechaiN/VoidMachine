@@ -21,19 +21,22 @@ import java.util.Optional;
 public final class HealthMonitor {
 
     public enum State {
-        HEALTHY(true),
+        HEALTHY(0, true),
         /** Something non-critical is wrong; rituals continue. */
-        DEGRADED(true),
+        DEGRADED(1, true),
         /** Some records need an admin decision; rituals continue for everyone else. */
-        RECOVERY_REQUIRED(true),
+        RECOVERY_REQUIRED(2, true),
         /** Configuration failed validation; no new rituals. */
-        CONFIG_INVALID(false),
+        CONFIG_INVALID(3, false),
         /** The journal cannot write durably; no new rituals. */
-        STORAGE_ERROR(false);
+        STORAGE_ERROR(4, false);
 
+        /** Higher is worse; the overall state is the worst open problem. */
+        private final int severity;
         private final boolean acceptsRituals;
 
-        State(boolean acceptsRituals) {
+        State(int severity, boolean acceptsRituals) {
+            this.severity = severity;
             this.acceptsRituals = acceptsRituals;
         }
 
@@ -88,7 +91,7 @@ public final class HealthMonitor {
     public synchronized State state() {
         State worst = State.HEALTHY;
         for (Problem p : problems.values()) {
-            if (p.source().severity().ordinal() > worst.ordinal()) worst = p.source().severity();
+            if (p.source().severity().severity > worst.severity) worst = p.source().severity();
         }
         return worst;
     }

@@ -20,6 +20,8 @@ public final class TimelineComposer {
     }
 
     /**
+     * Builds the ritual's timeline; phases before the reveal depend only on the pacing and the seed.
+     *
      * @param revealHold   ticks the true reveal is held (a jackpot variant may hold longer)
      */
     public static RitualTimeline compose(Pacing pacing, long presentationSeed, OutcomeTier tier,

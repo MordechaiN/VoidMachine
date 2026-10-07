@@ -283,6 +283,9 @@ public final class CustodyService {
                 case AWAIT_VERIFICATION -> {
                     // Fully paid this session; the next join proves it reached disk.
                 }
+                case ADMIN_REVIEW -> {
+                    // Never automatic: waits for /vm admin refund or release.
+                }
             }
         }
         for (UUID id : plan.forgettableEntries()) CustodyEngine.forget(custody, id);

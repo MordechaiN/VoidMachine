@@ -56,6 +56,8 @@ public final class CuePlayer {
     }
 
     /**
+     * Plays one cue for the context's audience, within its effect allowance.
+     *
      * @param progress progress of the current phase, 0..1 (drives "from..to" ramps)
      */
     public static void play(Cue cue, double progress, Context ctx) {

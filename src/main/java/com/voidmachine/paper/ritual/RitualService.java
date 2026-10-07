@@ -321,7 +321,7 @@ public final class RitualService implements CustodyService.ActiveRituals {
         }
         stats.record(new StatsBook.RitualSummary(r.playerId, r.playerName, r.machine.id(), r.record.itemKey(),
                 r.verdict.inputAmount(), r.verdict.outcomeId(), r.verdict.tier(), r.verdict.rewardAmount(),
-                r.jackpotVariant, r.fakeout != null, r.crowdAtReveal, r.tick, System.currentTimeMillis(), LocalTime.now().getHour()));
+                r.jackpotVariant, r.fakeout != null, r.crowdAtReveal, r.tick, System.currentTimeMillis(), LocalTime.now(java.time.ZoneId.systemDefault()).getHour()));
         audit.log(AuditLog.Event.REVEAL, Map.of("ritual", r.id, "player", r.playerName, "outcome", r.verdict.outcomeId(),
                 "reward", r.verdict.rewardAmount(), "paid", payout.given(), "held", Math.max(0, payout.remaining()),
                 "crowd", r.crowdAtReveal, "variant", r.jackpotVariant == null ? "-" : r.jackpotVariant));
@@ -479,7 +479,7 @@ public final class RitualService implements CustodyService.ActiveRituals {
     private void log(Settings.LogLevel level, String message) {
         Settings s = settings.get();
         Settings.LogLevel configured = s == null ? Settings.LogLevel.INFO : s.logging().level();
-        if (configured.ordinal() >= level.ordinal()) logger.info(message);
+        if (configured.includes(level)) logger.info(message);
     }
 
     static net.kyori.adventure.text.minimessage.tag.resolver.TagResolver num(String key, long v) {

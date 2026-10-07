@@ -56,6 +56,8 @@ public record Settings(
     }
 
     /**
+     * A machine profile: its odds, choreography and optional access permission.
+     *
      * @param permission extra permission required to use machines with this profile ("" = none)
      */
     public record Profile(String id, OutcomeTable table, String theme, String pacing, String permission) {
@@ -95,7 +97,18 @@ public record Settings(
     }
 
     public enum LogLevel {
-        QUIET, INFO, DEBUG
+        QUIET(0), INFO(1), DEBUG(2);
+
+        private final int verbosity;
+
+        LogLevel(int verbosity) {
+            this.verbosity = verbosity;
+        }
+
+        /** Whether a message of level {@code message} is logged when this level is configured. */
+        public boolean includes(LogLevel message) {
+            return verbosity >= message.verbosity;
+        }
     }
 
     public record Logging(LogLevel level, boolean auditEnabled, int auditRetentionDays) {

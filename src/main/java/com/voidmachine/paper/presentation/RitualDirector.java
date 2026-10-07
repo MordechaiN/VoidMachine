@@ -61,7 +61,6 @@ public final class RitualDirector implements RitualService.Presentation {
 
     private final Plugin plugin;
     private final Messages messages;
-    private final Supplier<Settings> settings;
     private final DisplayService displays;
     private final EffectBudget budget;
     private final HealthMonitor health;
@@ -81,7 +80,6 @@ public final class RitualDirector implements RitualService.Presentation {
         this.plugin = plugin;
         this.cues = cues;
         this.messages = messages;
-        this.settings = settings;
         this.displays = displays;
         this.budget = budget;
         this.health = health;
@@ -249,7 +247,7 @@ public final class RitualDirector implements RitualService.Presentation {
         Script script = scriptFor(r, a, seg.phase());
         if (!script.isEmpty()) {
             double intensity = s.spectators().crowd().intensity(a.audience().onlookers());
-            Ctx ctx = new Ctx(r, a, block, budget.allowance(), intensity);
+            Ctx ctx = new Ctx(a, block, budget.allowance(), intensity);
             script.due(local, cue -> cues.play(cue, progress, ctx));
         }
     }
@@ -408,7 +406,7 @@ public final class RitualDirector implements RitualService.Presentation {
         Settings.AnnounceScope scope = s.presentation().announceFor(tierKey);
         if (scope == Settings.AnnounceScope.SERVER) {
             Instant now = Instant.now();
-            if (Duration.between(lastServerAnnounce, now).getSeconds() >= s.presentation().serverAnnounceCooldownSeconds()) {
+            if (Duration.between(lastServerAnnounce, now).toSeconds() >= s.presentation().serverAnnounceCooldownSeconds()) {
                 lastServerAnnounce = now;
                 String key = tier == OutcomeTier.JACKPOT && r.jackpotVariant() != null ? "announce.jackpot" : "announce." + tierKey;
                 List<Player> listeners = new ArrayList<>();
@@ -540,14 +538,12 @@ public final class RitualDirector implements RitualService.Presentation {
     // ------------------------------------------------------------------------------------------
 
     private static final class Ctx implements CuePlayer.Context {
-        private final ActiveRitual r;
         private final RitualAccess a;
         private final Location block;
         private final EffectBudget.Allowance allowance;
         private final double intensity;
 
-        Ctx(ActiveRitual r, RitualAccess a, Location block, EffectBudget.Allowance allowance, double intensity) {
-            this.r = r;
+        Ctx(RitualAccess a, Location block, EffectBudget.Allowance allowance, double intensity) {
             this.a = a;
             this.block = block;
             this.allowance = allowance;

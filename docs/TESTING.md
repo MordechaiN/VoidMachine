@@ -58,6 +58,20 @@ They were checked by deliberately breaking the code (mutation testing) and confi
 - A case-altered checksum header was accepted.
 - A stale refund confirmation raised a false `STORAGE_ERROR`.
 
+## Static analysis
+
+- The build compiles main and test code with `-Xlint:all` (minus `serial` and `processing`): **zero
+  warnings**. The only suppression in the repository is in the test double `VmServerMock`, for a raw
+  return type it inherits from MockBukkit's `ServerMock`.
+- [Error Prone](https://errorprone.info) 2.42.0 was run over all production sources (not wired into
+  the Gradle build, which would need the Error Prone Gradle plugin and JDK-internal exports).
+  It reported 26 findings; all were fixed except two `ArrayRecordComponent` notes on `JournalRecord`
+  and `V1Checkpoint`, which hold serialized item bytes: both copy the array defensively and implement
+  `equals`/`hashCode`/`toString` with array semantics. Fixed findings included reliance on enum
+  declaration order (`ordinal()`) for health severity, tier rank and log level, an ignored
+  `teleportAsync` future, an implicit time zone, a non-exhaustive switch, a public mutable array and
+  unused fields.
+
 ## The test harness
 
 - `Harness` boots the real plugin on MockBukkit 4 (`mockbukkit-v26.2`) with single-outcome test

@@ -39,6 +39,8 @@ public sealed interface Cue permits Cue.Sound, Cue.Particle, Cue.Lightning, Cue.
     }
 
     /**
+     * A particle effect, optionally arranged in a shape.
+     *
      * @param data        particle data kind (validated against the particle)
      * @param color       {@code #rrggbb} for DUST / DUST_TRANSITION / COLOR particles
      * @param toColor     {@code #rrggbb} for DUST_TRANSITION

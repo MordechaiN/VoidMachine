@@ -195,7 +195,7 @@ public final class V1ConfigMigration {
 
     static Object get(Map<String, Object> tree, String path) {
         Object cur = tree;
-        for (String part : path.split("\\.")) {
+        for (String part : path.split("\\.", -1)) {
             if (!(cur instanceof Map<?, ?> m)) return null;
             cur = m.get(part);
             if (cur == null) return null;

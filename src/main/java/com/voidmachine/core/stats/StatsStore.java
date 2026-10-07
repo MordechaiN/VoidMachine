@@ -29,8 +29,10 @@ public final class StatsStore {
         this.file = file;
     }
 
+    private static final int FORMAT = 1;
+
     private static final class Document {
-        int version = 1;
+        int version = FORMAT;
         StatsBook.Global global;
         Map<String, StatsBook.PlayerStats> players;
     }
@@ -41,6 +43,7 @@ public final class StatsStore {
         try {
             Document doc = GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), Document.class);
             if (doc == null) return book;
+            if (doc.version != FORMAT) throw new JsonParseException("unsupported statistics format " + doc.version);
             if (doc.global != null) {
                 if (doc.global.byHour == null || doc.global.byHour.length != 24) doc.global.byHour = new long[24];
                 if (doc.global.outcomes == null) doc.global.outcomes = new java.util.LinkedHashMap<>();

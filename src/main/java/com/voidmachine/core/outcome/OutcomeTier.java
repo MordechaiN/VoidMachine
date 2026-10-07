@@ -34,7 +34,14 @@ public enum OutcomeTier {
 
     /** Ordering used by fakeouts: a fakeout may only pretend a <em>lower</em> rank than the truth. */
     public int rank() {
-        return ordinal();
+        return switch (this) {
+            case LOSS -> 0;
+            case PARTIAL -> 1;
+            case NEUTRAL -> 2;
+            case WIN -> 3;
+            case GREAT -> 4;
+            case JACKPOT -> 5;
+        };
     }
 
     /** Returns an explanation if this tier cannot be used with {@code multiplier}, otherwise empty. */

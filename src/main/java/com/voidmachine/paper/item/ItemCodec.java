@@ -22,6 +22,8 @@ public final class ItemCodec {
     }
 
     /**
+     * Restores a single-item template written by {@link #encodeTemplate}.
+     *
      * @throws IllegalArgumentException if the bytes are not a valid item for this server
      */
     public static ItemStack decodeTemplate(byte[] bytes) {

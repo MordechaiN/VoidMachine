@@ -23,10 +23,10 @@ public final class PlayerLedger {
     /** Sanity limit; a ledger with more entries is treated as corrupt rather than parsed. */
     public static final int MAX_ENTRIES = 4096;
 
-    private final LinkedHashMap<UUID, Entry> entries;
+    private final Map<UUID, Entry> entries;
 
-    private PlayerLedger(LinkedHashMap<UUID, Entry> entries) {
-        this.entries = entries;
+    private PlayerLedger(Map<UUID, Entry> entries) {
+        this.entries = new LinkedHashMap<>(entries);
     }
 
     public static PlayerLedger empty() {

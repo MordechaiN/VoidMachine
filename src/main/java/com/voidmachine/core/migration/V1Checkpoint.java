@@ -21,17 +21,42 @@ public record V1Checkpoint(int state, UUID playerId, String playerName, String m
     public static final int DELIVERING = 3;
 
     /** V1 outcome enum order (the file stores ordinals). */
-    public static final String[] V1_OUTCOMES = {"consumed", "returned", "doubled", "tripled", "jackpot"};
+    private static final java.util.List<String> V1_OUTCOMES = java.util.List.of("consumed", "returned", "doubled", "tripled", "jackpot");
+
+    /** Defensive copy, like the journal's records. */
+    @Override
+    public byte[] itemBytes() {
+        return itemBytes.clone();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof V1Checkpoint c && state == c.state && capturedAt == c.capturedAt && outcomeOrdinal == c.outcomeOrdinal
+                && outputAmount == c.outputAmount && playerId.equals(c.playerId) && playerName.equals(c.playerName)
+                && machineLocation.equals(c.machineLocation) && profile.equals(c.profile) && java.util.Arrays.equals(itemBytes, c.itemBytes);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(state, playerId, capturedAt, outcomeOrdinal, outputAmount) * 31 + java.util.Arrays.hashCode(itemBytes);
+    }
+
+    @Override
+    public String toString() {
+        return "V1Checkpoint[state=" + state + ", player=" + playerName + ", item=" + itemBytes.length + " bytes, outcome=" + outcomeName() + "]";
+    }
 
     public boolean needsAdminDecision() {
         return state == DELIVERING;
     }
 
     public String outcomeName() {
-        return outcomeOrdinal >= 0 && outcomeOrdinal < V1_OUTCOMES.length ? V1_OUTCOMES[outcomeOrdinal] : "unknown";
+        return outcomeOrdinal >= 0 && outcomeOrdinal < V1_OUTCOMES.size() ? V1_OUTCOMES.get(outcomeOrdinal) : "unknown";
     }
 
     /**
+     * Reads a V1 checkpoint file.
+     *
      * @throws IOException with a reason if the bytes are not a valid V1 checkpoint
      */
     public static V1Checkpoint parse(byte[] bytes) throws IOException {

@@ -20,9 +20,8 @@ java {
 
 repositories {
     mavenCentral()
-    maven("https://repo.papermc.io/repository/maven-public/") {
-        content { includeGroup("io.papermc.paper") }
-    }
+    // PaperMC's repository (paper-api and the few dependencies that are not on Maven Central).
+    maven("https://repo.papermc.io/repository/maven-public/")
 }
 
 dependencies {

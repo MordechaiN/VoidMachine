@@ -63,6 +63,8 @@ public final class JournalCodec {
     }
 
     /**
+     * Parses and verifies a record written by {@link #encode}.
+     *
      * @throws CorruptRecordException with a precise reason when the bytes are not a valid record
      */
     public static JournalRecord decode(byte[] bytes) throws CorruptRecordException {
@@ -76,13 +78,11 @@ public final class JournalCodec {
         }
         if (nl < 0) throw new CorruptRecordException("missing header line");
         String header = new String(bytes, 0, nl, StandardCharsets.US_ASCII);
-        String[] parts = header.split(" ");
-        if (parts.length != 2 || !MAGIC.equals(parts[0])) {
-            throw new CorruptRecordException("bad header '" + header + "'");
-        }
+        if (!header.startsWith(MAGIC + " ")) throw new CorruptRecordException("bad header '" + header + "'");
         byte[] body = new byte[bytes.length - nl - 1];
         System.arraycopy(bytes, nl + 1, body, 0, body.length);
-        String expected = parts[1]; // canonical lower-case hex only: any altered byte is rejected
+        // The header must be exactly what encode() writes (lower-case hex): any altered byte is rejected.
+        String expected = header.substring(MAGIC.length() + 1);
         String actual = crcHex(body);
         if (!expected.equals(actual)) {
             throw new CorruptRecordException("checksum mismatch (expected " + expected + ", got " + actual + ")");

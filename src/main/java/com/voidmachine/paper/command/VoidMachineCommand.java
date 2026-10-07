@@ -409,7 +409,12 @@ public final class VoidMachineCommand implements TabExecutor {
             error(sender, "World '" + m.record().world() + "' is not loaded.");
             return;
         }
-        p.teleportAsync(l.add(0.5, 1.2, 2.5).setDirection(new org.bukkit.util.Vector(0, -0.2, -1)), PlayerTeleportEvent.TeleportCause.COMMAND);
+        var unused = p.teleportAsync(l.add(0.5, 1.2, 2.5).setDirection(new org.bukkit.util.Vector(0, -0.2, -1)), PlayerTeleportEvent.TeleportCause.COMMAND)
+                .whenComplete((moved, failure) -> {
+                    if (failure != null || !Boolean.TRUE.equals(moved)) {
+                        error(sender, "Teleport to '" + m.id() + "' failed" + (failure == null ? " (cancelled by another plugin)." : ": " + failure.getMessage()));
+                    }
+                });
     }
 
     private void rituals(CommandSender sender) {

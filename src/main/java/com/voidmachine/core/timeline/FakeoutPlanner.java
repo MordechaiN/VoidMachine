@@ -55,6 +55,8 @@ public final class FakeoutPlanner {
     }
 
     /**
+     * Decides whether this ritual gets a fakeout and which decoy it pretends (always worse than the truth).
+     *
      * @param outcomes the machine profile's outcomes, used to pick a believable decoy
      */
     public Optional<FakeoutPlan> plan(UUID player, String machineId, Verdict verdict,
