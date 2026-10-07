@@ -1,0 +1,15 @@
+machines:
+  main_machine:
+    world: world
+    x: 100
+    y: 64
+    z: -200
+    profile: default
+  "Dark Altar":
+    world: world_nether
+    x: 0
+    y: 48
+    z: 0
+    profile: brutal
+  broken:
+    x: 1

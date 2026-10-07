@@ -1,0 +1,341 @@
+# =============================================================================
+#  VoidMachine 2 — ritual choreography
+#
+#  Pure presentation. Nothing in this file can change what the Void decides or
+#  how many items a player receives: the verdict is sealed before the first cue.
+#
+#  Times are in ticks (20 ticks = 1 second).
+#
+#  CUES — each cue has exactly one of: sound, particle, lightning, display, charge
+#    at:      tick offset inside the script (inside each loop when 'every' is set)
+#    chance:  0.0-1.0, probability the cue fires (default 1)
+#    to:      who receives it: owner | inner | near | all   (default all)
+#
+#    sound:    vanilla sound event, e.g. block.beacon.activate (other namespaces = resource pack)
+#      volume, pitch: a number or a ramp "from..to" that follows the phase's progress
+#      jitter:   random pitch variation (0-0.5)
+#      channel:  master | block | ambient | hostile | weather   (default block)
+#    particle: particle id, e.g. portal, end_rod, dust
+#      count:    number or ramp "4..18"
+#      spread:   number or [x, y, z]       speed: particle speed
+#      anchor:   machine | top | above | owner   (owner = above the offering player's head)
+#      shape:    point | ring | column | spiral   (+ radius, height, points)
+#      color / to-color: "#rrggbb" for dust, dust_color_transition, flash, entity_effect
+#      size:     dust size (0.1-4)
+#      particle 'item' shows the offered item itself.
+#    lightning: true            — visual only: no damage, no fire
+#    display:   rise | spin | pulse | implode | ascend | hide | reward
+#                 (floating item above the machine; Java clients only)
+#    charge:    0-4             — glow of a respawn-anchor machine, shown client-side only
+#
+#  The machine is bright on Bedrock too: boss bar, titles, sounds, the charge glow
+#  and most particles reach Bedrock players through Geyser.
+# =============================================================================
+format: 1
+
+# -----------------------------------------------------------------------------
+#  Pacing presets. [min, max] values are re-drawn for every ritual, independently
+#  of the verdict — nobody can read the outcome from how long the machine stirs.
+# -----------------------------------------------------------------------------
+pacing:
+  standard:
+    awaken: 12
+    capture: 20
+    stir: [20, 34]
+    ramp: 50
+    instability: [24, 48]
+    silence: [18, 28]
+    false-reveal: 36
+    destabilize: 22
+    reveal: 50
+    aftermath: 36
+  swift:
+    awaken: 8
+    capture: 14
+    stir: [10, 18]
+    ramp: 36
+    instability: [14, 28]
+    silence: [12, 18]
+    false-reveal: 30
+    destabilize: 18
+    reveal: 44
+    aftermath: 30
+  epic:
+    awaken: 16
+    capture: 28
+    stir: [34, 52]
+    ramp: 70
+    instability: [40, 80]
+    silence: [26, 40]
+    false-reveal: 46
+    destabilize: 30
+    reveal: 60
+    aftermath: 50
+
+themes:
+  # ---------------------------------------------------------------------------
+  #  VOID — the default artifact: purple light, deep hum, things that should not
+  #  sound like that.
+  # ---------------------------------------------------------------------------
+  void:
+    bossbar-color: purple
+
+    phases:
+      # The machine wakes.
+      awaken:
+        cues:
+          - { at: 0, sound: block.respawn_anchor.charge, volume: 1.0, pitch: 0.7 }
+          - { at: 0, sound: block.beacon.power_select, volume: 0.6, pitch: 0.5, to: inner }
+          - { at: 0, charge: 1 }
+          - { at: 0, particle: reverse_portal, count: 40, spread: [0.3, 0.6, 0.3], speed: 0.4, anchor: machine }
+          - { at: 4, particle: end_rod, count: 1, shape: ring, radius: 1.2, points: 14, speed: 0.0, anchor: top }
+
+      # The offering is drawn in.
+      capture:
+        cues:
+          - { at: 0, display: rise }
+          - { at: 0, sound: entity.enderman.teleport, volume: 0.6, pitch: 0.6 }
+          - { at: 2, particle: portal, count: 30, spread: 0.2, speed: 1.0, anchor: above }
+          - { at: 10, display: implode }
+          - { at: 12, sound: block.end_portal_frame.fill, volume: 0.8, pitch: 0.6 }
+          - { at: 14, particle: item, count: 16, spread: 0.15, speed: 0.08, anchor: above }
+          - { at: 16, particle: squid_ink, count: 8, spread: 0.2, speed: 0.02, anchor: top }
+
+      # The Void considers.
+      stir:
+        every: 10
+        cues:
+          - { at: 0, particle: portal, count: "6..14", spread: [0.4, 0.3, 0.4], speed: 0.3, anchor: top }
+          - { at: 0, sound: block.respawn_anchor.ambient, volume: "0.4..0.7", pitch: "0.5..0.7", jitter: 0.05, to: near, chance: 0.5 }
+          - { at: 5, particle: soul_fire_flame, count: 2, spread: 0.15, speed: 0.01, anchor: top, chance: 0.6 }
+          - { at: 5, particle: dust, color: "#2b0a4f", size: 1.4, count: 1, shape: ring, radius: 1.5, points: 10, anchor: top, chance: 0.5 }
+
+      # Energy builds. The boss bar fills and the anchor charges.
+      ramp:
+        every: 4
+        cues:
+          - { at: 0, particle: reverse_portal, count: "4..18", spread: [0.5, 0.6, 0.5], speed: 0.1, anchor: machine }
+          - { at: 0, particle: dust, color: "#7c2ad6", size: 1.2, count: 1, shape: ring, radius: 1.1, points: 12, anchor: top }
+          - { at: 0, particle: enchant, count: "6..20", spread: 0.5, speed: 1.0, anchor: above }
+          - { at: 2, sound: block.portal.ambient, volume: "0.15..0.5", pitch: "0.6..1.4", to: inner, chance: 0.35 }
+
+      # Flickers and near-surges — the same for every verdict.
+      instability:
+        every: 3
+        cues:
+          - { at: 0, particle: electric_spark, count: "2..6", spread: [0.6, 0.4, 0.6], speed: 0.2, anchor: above, chance: 0.7 }
+          - { at: 0, particle: large_smoke, count: 2, spread: 0.3, speed: 0.02, anchor: top, chance: 0.4 }
+          - { at: 1, sound: block.amethyst_block.resonate, volume: "0.3..0.8", pitch: "0.6..1.6", jitter: 0.1, to: inner, chance: 0.25 }
+          - { at: 2, particle: crit, count: 6, spread: 0.5, speed: 0.4, anchor: above, chance: 0.3 }
+          - { at: 2, sound: entity.warden.heartbeat, volume: 0.9, pitch: 0.8, to: inner, chance: 0.08 }
+          - { at: 2, particle: totem_of_undying, count: 6, spread: 0.3, speed: 0.3, anchor: above, chance: 0.05 }
+          - { at: 1, charge: 4, to: all, chance: 0.12 }
+          - { at: 2, charge: 2, to: all, chance: 0.12 }
+
+      # Everything stops.
+      silence:
+        cues:
+          - { at: 0, charge: 0 }
+          - { at: 0, sound: block.beacon.deactivate, volume: 0.7, pitch: 0.6, to: near }
+          - { at: 0, particle: smoke, count: 12, spread: [0.3, 0.1, 0.3], speed: 0.01, anchor: top }
+
+      # After a fakeout: the pretence breaks apart.
+      destabilize:
+        every: 2
+        cues:
+          - { at: 0, particle: electric_spark, count: 8, spread: 0.7, speed: 0.5, anchor: above }
+          - { at: 0, sound: block.glass.break, volume: 0.4, pitch: "0.5..1.5", to: inner, chance: 0.4 }
+          - { at: 1, particle: reverse_portal, count: 12, spread: 0.4, speed: 0.6, anchor: machine }
+          - { at: 1, sound: block.respawn_anchor.charge, volume: "0.4..1.0", pitch: "0.6..1.6", chance: 0.5 }
+          - { at: 1, charge: 3, chance: 0.5 }
+
+      # The dust settles.
+      aftermath:
+        cues:
+          - { at: 0, particle: end_rod, count: 6, spread: 0.4, speed: 0.02, anchor: above }
+          - { at: 24, charge: 1 }
+
+    reveals:
+      loss:
+        cues:
+          - { at: 0, display: hide }
+          - { at: 0, charge: 0 }
+          - { at: 0, sound: block.respawn_anchor.deplete, volume: 1.0, pitch: 0.6 }
+          - { at: 0, sound: block.sculk_catalyst.bloom, volume: 0.8, pitch: 0.6, to: near }
+          - { at: 0, particle: squid_ink, count: 24, spread: 0.4, speed: 0.05, anchor: above }
+          - { at: 0, particle: large_smoke, count: 16, spread: [0.4, 0.6, 0.4], speed: 0.03, anchor: top }
+          - { at: 8, sound: entity.enderman.stare, volume: 0.35, pitch: 0.5, to: inner, chance: 0.5 }
+      partial:
+        cues:
+          - { at: 0, sound: block.respawn_anchor.deplete, volume: 0.8, pitch: 0.9 }
+          - { at: 0, particle: smoke, count: 10, spread: 0.3, speed: 0.02, anchor: above }
+          - { at: 4, display: reward }
+          - { at: 4, sound: block.amethyst_block.chime, volume: 0.8, pitch: 0.8 }
+          - { at: 4, particle: end_rod, count: 8, spread: 0.3, speed: 0.02, anchor: above }
+          - { at: 4, charge: 1 }
+      neutral:
+        cues:
+          - { at: 0, display: reward }
+          - { at: 0, charge: 2 }
+          - { at: 0, sound: block.amethyst_block.chime, volume: 1.0, pitch: 1.2 }
+          - { at: 0, particle: end_rod, count: 14, spread: 0.25, speed: 0.03, anchor: above }
+          - { at: 6, sound: entity.enderman.teleport, volume: 0.5, pitch: 1.2, to: inner }
+      win:
+        cues:
+          - { at: 0, display: reward }
+          - { at: 0, charge: 3 }
+          - { at: 0, sound: entity.player.levelup, volume: 1.0, pitch: 1.0 }
+          - { at: 0, particle: end_rod, count: 24, spread: 0.4, speed: 0.06, anchor: above }
+          - { at: 0, particle: dust, color: "#5ef08a", size: 1.3, count: 1, shape: ring, radius: 1.4, points: 20, anchor: top }
+          - { at: 4, sound: block.amethyst_block.resonate, volume: 0.8, pitch: 1.4 }
+      great:
+        cues:
+          - { at: 0, display: reward }
+          - { at: 0, charge: 4 }
+          - { at: 0, sound: entity.player.levelup, volume: 1.2, pitch: 1.3 }
+          - { at: 0, sound: block.beacon.activate, volume: 1.0, pitch: 1.2, to: near }
+          - { at: 0, particle: totem_of_undying, count: 40, spread: 0.4, speed: 0.4, anchor: above }
+          - { at: 4, sound: block.amethyst_block.chime, volume: 0.9, pitch: 0.65 }
+          - { at: 6, particle: firework, count: 20, spread: 0.5, speed: 0.1, anchor: above }
+          - { at: 10, particle: dust, color: "#ffd166", size: 1.2, count: 1, shape: spiral, radius: 1.2, height: 2.5, points: 24, anchor: top }
+
+    # Legendary reveals. One is chosen per jackpot (weighted, never the same twice in
+    # a row on one machine). 'hold' is how long the reveal lasts.
+    jackpots:
+      # A beam of white light climbs out of the machine and the offering ascends with it.
+      void_ascension:
+        weight: 1.0
+        hold: 120
+        bossbar-color: white
+        cues:
+          - { at: 0, charge: 4 }
+          - { at: 0, display: ascend }
+          - { at: 0, sound: block.beacon.activate, volume: 1.5, pitch: 0.6 }
+          - { at: 0, sound: block.end_portal.spawn, volume: 0.8, pitch: 1.2 }
+          - { at: 0, particle: end_rod, count: 1, shape: column, radius: 0.3, height: 5, points: 40, anchor: top }
+          - { at: 10, particle: end_rod, count: 1, shape: column, radius: 0.4, height: 7, points: 48, anchor: top }
+          - { at: 20, lightning: true }
+          - { at: 20, sound: ui.toast.challenge_complete, volume: 1.2, pitch: 1.0 }
+          - { at: 20, particle: totem_of_undying, count: 80, spread: 0.6, speed: 0.6, anchor: above }
+          - { at: 24, display: reward }
+          - { at: 30, particle: firework, count: 40, spread: 1.0, speed: 0.2, anchor: above }
+          - { at: 40, sound: block.bell.resonate, volume: 1.0, pitch: 1.2 }
+          - { at: 50, particle: dust, color: "#fff6d5", size: 1.5, count: 1, shape: spiral, radius: 1.4, height: 4, points: 32, anchor: top }
+          - { at: 70, sound: block.amethyst_block.chime, volume: 1.0, pitch: 2.0 }
+
+      # Darkness. A heartbeat that speeds up. Then the Devourer roars — and is generous.
+      the_devourer:
+        weight: 1.0
+        hold: 110
+        bossbar-color: red
+        cues:
+          - { at: 0, charge: 0 }
+          - { at: 0, sound: entity.warden.heartbeat, volume: 1.4, pitch: 0.6 }
+          - { at: 0, particle: squid_ink, count: 60, spread: 1.0, speed: 0.02, anchor: above }
+          - { at: 10, sound: entity.warden.heartbeat, volume: 1.6, pitch: 0.7 }
+          - { at: 18, sound: entity.warden.heartbeat, volume: 1.8, pitch: 0.85 }
+          - { at: 24, sound: entity.warden.heartbeat, volume: 2.0, pitch: 1.0 }
+          - { at: 28, particle: sculk_soul, count: 1, shape: ring, radius: 2.5, points: 24, speed: 0.05, anchor: top }
+          - { at: 34, sound: entity.warden.sonic_boom, volume: 1.6, pitch: 0.8 }
+          - { at: 34, particle: sonic_boom, count: 1, spread: 0.0, anchor: above }
+          - { at: 34, charge: 4 }
+          - { at: 36, display: reward }
+          - { at: 36, particle: totem_of_undying, count: 90, spread: 0.8, speed: 0.7, anchor: above }
+          - { at: 38, sound: ui.toast.challenge_complete, volume: 1.0, pitch: 0.8 }
+          - { at: 50, particle: sculk_charge_pop, count: 30, spread: 1.0, speed: 0.05, anchor: top }
+          - { at: 60, sound: entity.warden.emerge, volume: 0.5, pitch: 1.4, to: near }
+
+      # A black star forms above the machine, collapses, and bursts into light.
+      black_star:
+        weight: 1.0
+        hold: 120
+        bossbar-color: purple
+        cues:
+          - { at: 0, sound: block.conduit.activate, volume: 1.4, pitch: 0.5 }
+          - { at: 0, particle: dust, color: "#000000", size: 2.5, count: 30, spread: 0.25, anchor: above }
+          - { at: 6, particle: dust, color: "#120018", size: 2.0, count: 1, shape: ring, radius: 2.0, points: 28, anchor: above }
+          - { at: 12, particle: dust, color: "#120018", size: 2.0, count: 1, shape: ring, radius: 1.4, points: 24, anchor: above }
+          - { at: 18, particle: dust, color: "#120018", size: 2.0, count: 1, shape: ring, radius: 0.8, points: 18, anchor: above }
+          - { at: 22, sound: block.end_portal.spawn, volume: 1.0, pitch: 0.7 }
+          - { at: 26, lightning: true }
+          - { at: 26, particle: end_rod, count: 80, spread: 0.1, speed: 0.5, anchor: above }
+          - { at: 26, particle: flash, color: "#ffffff", count: 1, spread: 0.0, anchor: above }
+          - { at: 26, charge: 4 }
+          - { at: 28, display: reward }
+          - { at: 30, sound: ui.toast.challenge_complete, volume: 1.2, pitch: 1.2 }
+          - { at: 40, particle: dust_color_transition, color: "#7c2ad6", to-color: "#000000", size: 1.6, count: 1, shape: spiral, radius: 1.6, height: 3, points: 36, anchor: top }
+          - { at: 60, sound: block.amethyst_block.resonate, volume: 1.0, pitch: 0.5 }
+
+      # A slow drum, quickening. The machine has a heart, and it is beating for you.
+      heart_of_the_void:
+        weight: 1.0
+        hold: 120
+        bossbar-color: red
+        cues:
+          - { at: 0, charge: 1 }
+          - { at: 0, sound: block.note_block.basedrum, volume: 1.4, pitch: 0.6 }
+          - { at: 0, particle: dust, color: "#8b0000", size: 1.8, count: 1, shape: ring, radius: 0.8, points: 14, anchor: top }
+          - { at: 16, sound: block.note_block.basedrum, volume: 1.5, pitch: 0.65 }
+          - { at: 16, particle: dust, color: "#a4161a", size: 1.8, count: 1, shape: ring, radius: 1.0, points: 16, anchor: top }
+          - { at: 16, charge: 2 }
+          - { at: 28, sound: block.note_block.basedrum, volume: 1.6, pitch: 0.7 }
+          - { at: 28, particle: dust, color: "#ba181b", size: 1.9, count: 1, shape: ring, radius: 1.2, points: 18, anchor: top }
+          - { at: 38, sound: block.note_block.basedrum, volume: 1.7, pitch: 0.75 }
+          - { at: 38, particle: dust, color: "#d00000", size: 2.0, count: 1, shape: ring, radius: 1.4, points: 20, anchor: top }
+          - { at: 38, charge: 3 }
+          - { at: 46, sound: block.note_block.basedrum, volume: 1.8, pitch: 0.8 }
+          - { at: 52, sound: block.note_block.basedrum, volume: 1.9, pitch: 0.85 }
+          - { at: 56, sound: block.note_block.basedrum, volume: 2.0, pitch: 0.9 }
+          - { at: 60, lightning: true }
+          - { at: 60, charge: 4 }
+          - { at: 60, sound: item.totem.use, volume: 1.2, pitch: 1.0 }
+          - { at: 60, particle: totem_of_undying, count: 100, spread: 0.6, speed: 0.7, anchor: above }
+          - { at: 62, display: reward }
+          - { at: 66, sound: ui.toast.challenge_complete, volume: 1.0, pitch: 1.0 }
+          - { at: 80, particle: dust, color: "#ff4d6d", size: 1.4, count: 1, shape: spiral, radius: 1.2, height: 3, points: 30, anchor: top }
+
+      # The rarest. A crown of soul fire settles on the offerer's head; a bell tolls.
+      null_crown:
+        weight: 0.5
+        hold: 140
+        bossbar-color: yellow
+        cues:
+          - { at: 0, sound: block.bell.use, volume: 1.5, pitch: 0.5 }
+          - { at: 0, sound: block.trial_spawner.ominous_activate, volume: 1.2, pitch: 0.8 }
+          - { at: 0, particle: soul_fire_flame, count: 1, shape: ring, radius: 0.6, points: 16, speed: 0.0, anchor: owner }
+          - { at: 10, particle: soul_fire_flame, count: 1, shape: ring, radius: 0.55, points: 16, speed: 0.0, anchor: owner }
+          - { at: 10, sound: block.bell.resonate, volume: 1.0, pitch: 0.6 }
+          - { at: 20, particle: soul_fire_flame, count: 1, shape: ring, radius: 0.5, points: 16, speed: 0.0, anchor: owner }
+          - { at: 20, sound: block.bell.use, volume: 1.5, pitch: 0.55 }
+          - { at: 30, particle: soul_fire_flame, count: 1, shape: ring, radius: 0.5, points: 16, speed: 0.0, anchor: owner }
+          - { at: 40, sound: block.end_gateway.spawn, volume: 1.2, pitch: 0.8 }
+          - { at: 40, lightning: true }
+          - { at: 40, charge: 4 }
+          - { at: 42, display: reward }
+          - { at: 42, particle: totem_of_undying, count: 120, spread: 0.7, speed: 0.8, anchor: above }
+          - { at: 44, sound: ui.toast.challenge_complete, volume: 1.4, pitch: 0.7 }
+          - { at: 60, particle: trial_omen, count: 1, shape: ring, radius: 2.0, points: 24, speed: 0.0, anchor: top }
+          - { at: 80, particle: trial_omen, count: 1, shape: ring, radius: 2.6, points: 28, speed: 0.0, anchor: top }
+          - { at: 100, sound: block.bell.resonate, volume: 0.8, pitch: 0.5 }
+
+    ambient:
+      # Every second for idle machines with a player nearby.
+      idle:
+        every: 20
+        cues:
+          - { at: 0, particle: portal, count: 3, spread: [0.3, 0.2, 0.3], speed: 0.05, anchor: top }
+          - { at: 0, sound: block.respawn_anchor.ambient, volume: 0.25, pitch: 0.5, jitter: 0.07, to: near, channel: ambient, chance: 0.33 }
+          - { at: 10, particle: soul_fire_flame, count: 1, spread: 0.1, speed: 0.0, anchor: top, chance: 0.4 }
+          - { at: 10, sound: entity.enderman.ambient, volume: 0.09, pitch: 0.55, to: inner, channel: ambient, chance: 0.03 }
+          - { at: 15, particle: end_rod, count: 6, spread: [0.25, 0.2, 0.25], speed: 0.03, anchor: top, chance: 0.033 }
+          - { at: 15, sound: block.amethyst_block.chime, volume: 0.4, pitch: 0.7, to: near, channel: ambient, chance: 0.033 }
+      # A rare surge on an idle machine.
+      void-event:
+        cues:
+          - { at: 0, charge: 4 }
+          - { at: 0, particle: portal, count: 50, spread: [0.5, 0.8, 0.5], speed: 0.3, anchor: top }
+          - { at: 0, sound: block.beacon.power_select, volume: 0.7, pitch: 0.5 }
+          - { at: 0, sound: entity.ender_dragon.ambient, volume: 0.45, pitch: 0.8 }
+          - { at: 4, lightning: true }
+          - { at: 4, particle: soul_fire_flame, count: 1, shape: ring, radius: 1.0, points: 12, speed: 0.0, anchor: top }
+          - { at: 30, charge: 1 }
