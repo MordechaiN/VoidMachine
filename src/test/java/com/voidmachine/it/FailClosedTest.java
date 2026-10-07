@@ -150,6 +150,43 @@ class FailClosedTest {
     }
 
     @Test
+    void failedDeleteKeepsTheLedgerEntrySoAClaimIsNeverPaidTwice() throws Exception {
+        h = new Harness();
+        Machine m = h.machine("m1", "t-double", 0, 64, 0);
+        TestPlayer p = h.player("Sam", m);
+        p.persist();
+        claimFor(p, 5);
+        UUID id = h.rt().journal().all().iterator().next().ritualId();
+        Path file = h.dataDir().resolve("journal").resolve(id + ".vmj");
+        h.quit(p);
+        h.join(p);
+        h.settle();
+        assertEquals(5, Harness.count(p, Material.DIAMOND), "the claim is paid");
+        assertTrue(Files.exists(file), "kept until a fresh load proves the payout");
+
+        // The next proof wants to delete the record, but the disk refuses.
+        byte[] original = Files.readAllBytes(file);
+        Files.delete(file);
+        Files.createDirectories(file.resolve("blocker"));
+        h.quit(p);
+        h.join(p);
+        h.settle();
+        assertEquals(HealthMonitor.State.STORAGE_ERROR, h.rt().health().state());
+        assertTrue(PlayerLedger.decode(p.ledger()).contains(id), "the settled entry is kept while the record survives");
+
+        // The disk recovers with the record still there; after a restart it must be finalized, not paid again.
+        Files.delete(file.resolve("blocker"));
+        Files.delete(file);
+        Files.write(file, original);
+        h.quit(p);
+        h.restartGracefully();
+        h.join(p);
+        h.settle();
+        assertEquals(5, Harness.count(p, Material.DIAMOND), "paid exactly once");
+        assertFalse(Files.exists(file));
+    }
+
+    @Test
     void owedEntryWithoutRecordIsKeptAsEvidence() throws Exception {
         h = new Harness();
         Machine m = h.machine("m1", "t-double", 0, 64, 0);

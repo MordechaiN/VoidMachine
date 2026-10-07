@@ -52,7 +52,7 @@ gets one twice.** Requires Paper 26.2 and Java 25. Upgrading from 1.x is automat
 - **Audit trail** in JSON lines; **statistics** with leaderboards (`/vm stats`, `/vm top`).
 - **API events**: `RitualStartEvent` (cancellable), `RitualCommitEvent`, `RitualRevealEvent`,
   `RitualJackpotEvent`, `RitualCompleteEvent`, `RitualRecoveryEvent`.
-- **Test suite** of 123 tests including crash injection at every protocol step, randomized chaos on
+- **Test suite** of 124 tests including crash injection at every protocol step, randomized chaos on
   the real plugin, property tests and opt-in benchmarks. See [docs/TESTING.md](docs/TESTING.md).
 
 ### Fixed (defects found in the 1.x audit, see docs/AUDIT-V1.md)

@@ -1,7 +1,7 @@
 # Testing
 
 ```bash
-./gradlew test        # 123 tests, about 40 s
+./gradlew test        # 124 tests, about 45 s
 ./gradlew benchmark   # 5 opt-in measurements (tagged "benchmark")
 ./gradlew benchmark -Pjfr=/tmp/vm.jfr   # the same, with a Java Flight Recorder profile
 ```
@@ -29,7 +29,7 @@ plugin logged an unexpected warning or error.
 | `it.RecoveryTest` | 11 | Quit, death, crash before and after capture, crash after a saved or an unsaved payout, graceful shutdown mid-ritual, offering moved before capture, quit before capture, chunk unload, reload during a ritual |
 | `it.ConcurrencyTest` | 7 | Two players pressing start on one machine, 20 start clicks, 200 interact events, every click type on every slot of the menu (all cancelled, nothing moves), tapping another stack, global ritual limit, eight simultaneous rituals with spectators |
 | `it.AdminTest` | 11 | Players cannot use admin commands (nor see them in completion), confirmations bound to sender and single-use, busy machines need `--force`, REVIEW records never paid automatically, refund and release, stale confirmations change nothing, resolve, read-only tools, enable/disable, console |
-| `it.FailClosedTest` | 6 | Invalid config refuses offerings but still pays what is owed; a bad reload keeps the previous config; broken storage refuses offerings and takes nothing, then recovers; corrupt records quarantined; unreadable ledgers never overwritten; owed entries without a record kept as evidence |
+| `it.FailClosedTest` | 7 | Invalid config refuses offerings but still pays what is owed; a bad reload keeps the previous config; broken storage refuses offerings and takes nothing, then recovers; corrupt records quarantined; unreadable ledgers never overwritten; owed entries without a record kept as evidence; a record whose deletion fails keeps its ledger entry, so it is finalized — not paid again — after the disk recovers |
 | `it.LocalizationTest` | 4 | English client, Hebrew client, unknown language → Hebrew default, Bedrock Hebrew pre-ordered while Java Hebrew is not |
 | `it.MigrationTest` | 1 | A V1 installation with config, machines, an interrupted ritual, an ambiguous delivery, a pending delivery and statistics is upgraded once, pays exactly once, and is not re-migrated after a restart |
 | `it.ChaosTest` | 4 | Four seeds × 260 random steps on the real plugin: offers, quits, joins, full inventories, silently failing saves, chunk unloads, admin resolves, crashes and graceful restarts. Afterwards every player must own exactly `initial − offered + reward` over every ritual whose capture reached their data file, all records must be settled and all ledgers clean |
@@ -57,6 +57,9 @@ They were checked by deliberately breaking the code (mutation testing) and confi
 - The "machine is busy" message showed a raw `<player>` tag.
 - A case-altered checksum header was accepted.
 - A stale refund confirmation raised a false `STORAGE_ERROR`.
+- **A failed journal delete still forgot the player's ledger entry**, so after a disk error and a
+  restart a fully paid claim looked unpaid and would have been paid again. The ledger entry is now
+  forgotten only after the file is really gone.
 
 ## Static analysis
 

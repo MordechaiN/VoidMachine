@@ -66,6 +66,7 @@ a save fails, or a chunk unloads. If the offering was never taken, nothing happe
 | Inventory full | Held; retried every `delivery.retry-seconds` and whenever the player closes an inventory or drops something; `/vm claim` |
 | Plugin reload while players are online | Their ledger is in memory, so records are paid if owed but closed only after their next join |
 | Corrupt journal record | Moved to `journal/quarantine/` with a `.reason.txt`; health `RECOVERY_REQUIRED`; nothing deleted |
+| A settled record cannot be deleted (disk error) | `STORAGE_ERROR`; the player's ledger entry is kept, so after the disk recovers the record is finalized again — never paid twice |
 | Unreadable player ledger | Left untouched as evidence; that player's records are not touched; admins alerted; new offerings from that player are refused (nothing taken) |
 | Ledger owes items but the record is missing | Entry kept as evidence; admins alerted |
 | Item in a record cannot be decoded (e.g. after a downgrade) | Left untouched; admins alerted |

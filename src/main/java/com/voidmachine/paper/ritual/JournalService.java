@@ -108,6 +108,10 @@ public final class JournalService {
     /**
      * Deletes a record. The index entry is removed immediately so the record is never processed twice;
      * if the deletion fails the file stays on disk and is simply reconciled again after a restart.
+     *
+     * @param onMainAfter runs on the main thread only if the file is really gone. Callers use it to
+     *                    forget the player's ledger entry; forgetting it while the record survives on
+     *                    disk would make a settled claim look unpaid after the restart.
      */
     public void delete(UUID ritualId, Runnable onMainAfter) {
         unindex(ritualId);
@@ -116,6 +120,7 @@ public final class JournalService {
                 journal.delete(ritualId);
             } catch (JournalException e) {
                 fail("delete", ritualId, e);
+                return;
             }
             if (onMainAfter != null) toMain(onMainAfter);
         });
