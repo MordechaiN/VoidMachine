@@ -1,83 +1,96 @@
 /*
- * VoidMachine — a brutal item-sink ritual machine for Paper servers.
- * Created by Mordechai Neeman.
- *
- * https://github.com/MordechaiNeeman/VoidMachine
- * Licensed under the MIT License — see LICENSE for details.
+ * VoidMachine — a forbidden artifact for Paper servers.
+ * Created by Mordechai Neeman. Licensed under the MIT License — see LICENSE.
  */
 plugins {
     java
-    id("com.gradleup.shadow") version "8.3.5"
 }
 
 group = "com.voidmachine"
-version = "1.1.0-beta"
-description = "VoidMachine — a brutal item-sink ritual machine for Paper servers."
+version = providers.gradleProperty("pluginVersion").get()
+description = "A cinematic, crash-safe item sacrifice ritual for Paper servers."
+
+val paperApiVersion: String = providers.gradleProperty("paperApiVersion").get()
+val javaRelease: Int = providers.gradleProperty("javaRelease").get().toInt()
 
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(javaRelease))
     withSourcesJar()
 }
 
 repositories {
     mavenCentral()
-    maven("https://repo.papermc.io/repository/maven-public/")
-    maven("https://oss.sonatype.org/content/repositories/snapshots/")
-    maven("https://repo.opencollab.dev/main/")
-    maven("https://nexus.scarsz.me/content/groups/public/")
-    maven("https://jitpack.io")
+    maven("https://repo.papermc.io/repository/maven-public/") {
+        content { includeGroup("io.papermc.paper") }
+    }
 }
 
 dependencies {
-    // Paper API — Minecraft 1.21.4 (latest stable as of release).
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    // Provided by the server at runtime. VoidMachine ships with zero bundled libraries.
+    compileOnly("io.papermc.paper:paper-api:$paperApiVersion")
 
-    // Floodgate (Geyser) — required only at compile time so we can detect
-    // Bedrock players cleanly when the plugin is present.
-    compileOnly("org.geysermc.floodgate:api:2.2.3-SNAPSHOT")
-
-    // DiscordSRV — optional. Wired via reflection at runtime, so a compileOnly
-    // dependency is sufficient and we never crash when it is absent.
-    compileOnly("com.discordsrv:discordsrv:1.28.0")
-
-    // Database stack — shaded and relocated to avoid clashes with other plugins.
-    implementation("com.zaxxer:HikariCP:6.2.1")
-    implementation("org.mariadb.jdbc:mariadb-java-client:3.5.1")
-
-    compileOnly("org.jetbrains:annotations:26.0.1")
+    testImplementation("io.papermc.paper:paper-api:$paperApiVersion")
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.2:4.117.0")
 }
 
 tasks {
-    compileJava {
+    withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
-        options.release.set(21)
-        options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-parameters"))
+        options.release.set(javaRelease)
+        options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-Xlint:-processing", "-parameters"))
     }
 
     processResources {
         filteringCharset = "UTF-8"
-        val props = mapOf("version" to project.version)
+        val props = mapOf("version" to project.version.toString())
         inputs.properties(props)
         filesMatching("plugin.yml") { expand(props) }
     }
 
-    shadowJar {
-        archiveClassifier.set("")
-        archiveFileName.set("VoidMachine-${project.version}.jar")
-        minimize {
-            exclude(dependency("com.zaxxer:HikariCP:.*"))
-            exclude(dependency("org.mariadb.jdbc:mariadb-java-client:.*"))
-        }
-        relocate("com.zaxxer.hikari", "com.voidmachine.lib.hikari")
-        relocate("org.mariadb", "com.voidmachine.lib.mariadb")
-        mergeServiceFiles()
-    }
-
-    build {
-        dependsOn(shadowJar)
-    }
-
     jar {
-        enabled = false
+        archiveFileName.set("VoidMachine-${project.version}.jar")
+        from(rootProject.file("LICENSE")) { into("META-INF") }
+        manifest {
+            attributes(
+                "Implementation-Title" to "VoidMachine",
+                "Implementation-Version" to project.version.toString(),
+            )
+        }
+        // Reproducible archives: stable ordering, no timestamps.
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
+    }
+
+    named<Jar>("sourcesJar") {
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
+    }
+
+    test {
+        useJUnitPlatform {
+            // Benchmarks are opt-in: ./gradlew benchmark
+            excludeTags("benchmark")
+        }
+        maxHeapSize = "1g"
+        testLogging {
+            events("failed", "skipped")
+            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        }
+    }
+
+    register<Test>("benchmark") {
+        description = "Runs the opt-in performance benchmarks (tagged 'benchmark')."
+        group = "verification"
+        testClassesDirs = sourceSets["test"].output.classesDirs
+        classpath = sourceSets["test"].runtimeClasspath
+        useJUnitPlatform { includeTags("benchmark") }
+        maxHeapSize = "1g"
+        testLogging {
+            events("passed", "failed")
+            showStandardStreams = true
+        }
     }
 }
