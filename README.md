@@ -176,6 +176,10 @@ Listeners can observe; they cannot change a verdict. See [Architecture](docs/ARC
 ./gradlew benchmark      # opt-in performance measurements
 ```
 
+The wrapper uses Gradle 8.14.3, which itself runs on Java 17–24 (for example 21); the plugin is
+compiled with a Java 25 toolchain, so a JDK 25 must also be installed (Gradle finds it automatically
+in the usual locations, or point to it with `-Porg.gradle.java.installations.paths=/path/to/jdk-25`).
+
 ## Documentation
 
 [Configuration](docs/CONFIGURATION.md) · [Commands](docs/COMMANDS.md) · [Permissions](docs/PERMISSIONS.md) ·
