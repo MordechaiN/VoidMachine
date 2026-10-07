@@ -60,6 +60,8 @@ public final class Messages {
     private final Set<String> reportedMissing = ConcurrentHashMap.newKeySet();
 
     private volatile Map<String, Map<String, Object>> languages = Map.of();
+    /** Parsed prefix per language (the prefix is part of almost every message). */
+    private final Map<String, Component> prefixes = new ConcurrentHashMap<>();
     private volatile Settings.Language settings = new Settings.Language("he", true, true);
 
     public Messages(Plugin plugin, Path langDir, BedrockDetector bedrock, Logger logger) {
@@ -72,6 +74,7 @@ public final class Messages {
     /** Loads bundled and server language files. Returns human-readable problems (never throws). */
     public List<String> reload(Settings.Language newSettings) {
         if (newSettings != null) this.settings = newSettings;
+        prefixes.clear();
         List<String> problems = new ArrayList<>();
         Map<String, Map<String, Object>> loaded = new HashMap<>();
         for (String lang : BUNDLED) {
@@ -221,6 +224,18 @@ public final class Messages {
         p.sendActionBar(render(p, key, resolvers));
     }
 
+    /** Sends one chat message to many players, rendering it once per language variant (not once per player). */
+    public void sendAll(Iterable<? extends Player> players, String key, TagResolver... resolvers) {
+        Map<Variant, Component> rendered = new HashMap<>(4);
+        for (Player p : players) p.sendMessage(rendered.computeIfAbsent(variant(p), v -> render(v, key, resolvers)));
+    }
+
+    /** Action-bar counterpart of {@link #sendAll}. */
+    public void actionBarAll(Iterable<? extends Player> players, String key, TagResolver... resolvers) {
+        Map<Variant, Component> rendered = new HashMap<>(4);
+        for (Player p : players) p.sendActionBar(rendered.computeIfAbsent(variant(p), v -> render(v, key, resolvers)));
+    }
+
     public void title(Player p, String titleKey, String subtitleKey, int fadeIn, int stay, int fadeOut, TagResolver... resolvers) {
         Variant v = variant(p);
         Component title = titleKey == null ? Component.empty() : render(v, titleKey, resolvers);
@@ -242,13 +257,15 @@ public final class Messages {
     }
 
     private Component prefix(String lang) {
-        Object raw = lookup(lang, "prefix");
-        if (raw == null) return Component.empty();
-        try {
-            return mini.deserialize(String.valueOf(raw));
-        } catch (ParsingException e) {
-            return Component.empty();
-        }
+        return prefixes.computeIfAbsent(lang, l -> {
+            Object raw = lookup(l, "prefix");
+            if (raw == null) return Component.empty();
+            try {
+                return mini.deserialize(String.valueOf(raw));
+            } catch (ParsingException e) {
+                return Component.empty();
+            }
+        });
     }
 
     private Component finish(Component c, Variant v) {

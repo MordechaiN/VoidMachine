@@ -99,6 +99,8 @@ tasks {
         testClassesDirs = sourceSets["test"].output.classesDirs
         classpath = sourceSets["test"].runtimeClasspath
         useJUnitPlatform { includeTags("benchmark") }
+        // Optional profiling: gradle benchmark -Pjfr=/path/to/out.jfr
+        if (project.hasProperty("jfr")) jvmArgs("-XX:StartFlightRecording=filename=${project.property("jfr")},settings=profile,jdk.ExecutionSample#period=1ms")
         maxHeapSize = "1g"
         testLogging {
             events("passed", "failed")

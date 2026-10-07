@@ -107,7 +107,7 @@ public final class AmbientService {
             if (m == voidEventMachine) {
                 long local = tick - voidEventStart;
                 if (local == 0) {
-                    for (Player p : audience.players(SpectatorTier.Audience.NEAR)) messages.actionBar(p, "ambient.restless");
+                    messages.actionBarAll(audience.players(SpectatorTier.Audience.NEAR), "ambient.restless");
                 }
                 if (local < VOID_EVENT_TICKS) {
                     theme.voidEvent().due((int) local, cue -> cues.play(cue, local / (double) VOID_EVENT_TICKS, ctx(m, audience, block, s)));

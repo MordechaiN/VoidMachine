@@ -72,7 +72,9 @@ public final class ChamberMenu implements InventoryHolder {
     }
 
     public void close(Player owner) {
-        if (owner != null && owner.getOpenInventory().getTopInventory().getHolder(false) == this) owner.closeInventory();
+        if (owner == null || !owner.isOnline()) return;
+        Inventory top = owner.getOpenInventory().getTopInventory();
+        if (top != null && top.getHolder(false) == this) owner.closeInventory();
     }
 
     private void fill(Material pane) {

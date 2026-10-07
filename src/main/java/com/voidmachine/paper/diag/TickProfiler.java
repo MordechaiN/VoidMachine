@@ -26,6 +26,15 @@ public final class TickProfiler {
         runs++;
     }
 
+    /** Forgets all samples (e.g. after warm-up, or when an admin wants a fresh measurement). */
+    public void reset() {
+        next = 0;
+        filled = 0;
+        max = 0;
+        total = 0;
+        runs = 0;
+    }
+
     public double averageMillis() {
         if (filled == 0) return 0;
         long sum = 0;

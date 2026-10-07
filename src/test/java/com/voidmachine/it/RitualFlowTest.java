@@ -161,7 +161,6 @@ class RitualFlowTest {
         h.offerHeld(p, m);
         h.awaitNoRituals();
         assertEquals(20, Harness.count(p, Material.DIAMOND));
-        assertTrue(h.world.lightningEffects > 0, "the jackpot reveal strikes (visual) lightning");
         assertTrue(h.fired(RitualJackpotEvent.class).anyMatch(e -> e.variant() != null && !e.variant().isBlank()));
         assertTrue(h.fired(RitualCompleteEvent.class).anyMatch(e -> e.paid() == 20 && e.held() == 0));
         assertFalse(Harness.messages(far).isEmpty(), "server-wide jackpot announcement must reach far players");
@@ -281,6 +280,26 @@ class RitualFlowTest {
         h.offerHeld(p, m);
         h.awaitNoRituals();
         assertTrue(h.fired(RitualRevealEvent.class).anyMatch(e -> e.ritual().outcomeId().equals("tithe") && e.ritual().rewardAmount() == 5));
+    }
+
+    @Test
+    void everyJackpotVariantPlaysItsWholeScript() {
+        boot();
+        Machine m = h.machine("m1", "t-loss", 0, 64, 0);
+        TestPlayer admin = h.player("Ned", m);
+        admin.setOp(true);
+        var theme = h.rt().book().theme("void");
+        assertEquals(5, theme.jackpots().size());
+        for (var jackpot : theme.jackpots()) {
+            boolean scripted = jackpot.script().cues().stream().anyMatch(c -> c instanceof com.voidmachine.core.script.Cue.Lightning);
+            int before = h.world.lightningEffects;
+            admin.performCommand("vm admin preview jackpot " + jackpot.id());
+            assertEquals(1, h.rt().rituals().active().size(), jackpot.id());
+            h.awaitNoRituals();
+            assertEquals(scripted, h.world.lightningEffects > before,
+                    jackpot.id() + (scripted ? " must strike its scripted lightning" : " has no lightning in its script"));
+        }
+        assertEquals(0, h.displayEntities());
     }
 
     @Test

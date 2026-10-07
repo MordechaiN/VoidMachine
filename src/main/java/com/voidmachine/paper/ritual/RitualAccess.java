@@ -11,6 +11,7 @@ import com.voidmachine.paper.presentation.Audience;
 import com.voidmachine.paper.presentation.DisplayService;
 import com.voidmachine.paper.presentation.RitualBars;
 import org.bukkit.Location;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.Set;
 import java.util.UUID;
@@ -46,6 +47,11 @@ public final class RitualAccess {
 
     public Pacing pacing() {
         return r.pacing;
+    }
+
+    /** The offering template itself, without the defensive copy; callers must not modify it. */
+    public ItemStack templateView() {
+        return r.template;
     }
 
     public long seed() {

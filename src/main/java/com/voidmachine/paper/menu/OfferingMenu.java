@@ -88,6 +88,13 @@ public final class OfferingMenu implements InventoryHolder {
         player.openInventory(inventory);
     }
 
+    /** Whether this menu is the screen {@code p} currently has open (false once they left). */
+    boolean isOpenFor(Player p) {
+        if (!p.isOnline()) return false;
+        Inventory top = p.getOpenInventory().getTopInventory();
+        return top != null && top.getHolder(false) == this;
+    }
+
     public Machine machine() {
         return machine;
     }
@@ -160,7 +167,7 @@ public final class OfferingMenu implements InventoryHolder {
             submitted = true;
             messages.actionBar(player, "ritual.listening");
             Bukkit.getScheduler().runTask(plugin, () -> {
-                if (player.getOpenInventory().getTopInventory().getHolder(false) == this) player.closeInventory();
+                if (isOpenFor(player)) player.closeInventory();
             });
             return;
         }

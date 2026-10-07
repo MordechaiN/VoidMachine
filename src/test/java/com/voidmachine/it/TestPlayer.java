@@ -37,14 +37,22 @@ public final class TestPlayer extends PlayerMock {
         if (!saveSilentlyFails) persist();
     }
 
+    /** Called with the ledger text every time it reaches the stand-in data file. */
+    public java.util.function.Consumer<String> onPersist = ledger -> { };
+
     /** Writes the current state to the stand-in data file. */
     public void persist() {
         savedContents = copy(getInventory().getContents());
         savedLedger = getPersistentDataContainer().get(ledgerKey, PersistentDataType.STRING);
+        onPersist.accept(savedLedger);
     }
+
+    /** Called whenever unsaved state is thrown away by {@link #loadSaved()}. */
+    public Runnable onLoadSaved = () -> { };
 
     /** Replaces the in-memory state with the last saved state (what the server loads on join after a crash). */
     public void loadSaved() {
+        onLoadSaved.run();
         getInventory().setContents(copy(savedContents));
         if (savedLedger == null) {
             getPersistentDataContainer().remove(ledgerKey);

@@ -411,28 +411,32 @@ public final class RitualDirector implements RitualService.Presentation {
             if (Duration.between(lastServerAnnounce, now).getSeconds() >= s.presentation().serverAnnounceCooldownSeconds()) {
                 lastServerAnnounce = now;
                 String key = tier == OutcomeTier.JACKPOT && r.jackpotVariant() != null ? "announce.jackpot" : "announce." + tierKey;
-                for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.hasPermission("voidmachine.notify")) messages.send(p, key, v);
-                }
+                List<Player> listeners = new ArrayList<>();
+                for (Player p : Bukkit.getOnlinePlayers()) if (p.hasPermission("voidmachine.notify")) listeners.add(p);
+                messages.sendAll(listeners, key, v);
                 return;
             }
             scope = Settings.AnnounceScope.AREA;
         }
         if (scope == Settings.AnnounceScope.AREA) {
+            List<Player> area = new ArrayList<>();
             for (Audience.Member m : a.audience().members()) {
-                if (m.tier() != SpectatorTier.OWNER) messages.send(m.player(), "announce." + tierKey, v);
+                if (m.tier() != SpectatorTier.OWNER) area.add(m.player());
             }
+            messages.sendAll(area, "announce." + tierKey, v);
         }
     }
 
     private void narrate(ActiveRitual r, String key, boolean spectatorsOnly, TagResolver... resolvers) {
         RitualAccess a = RitualAccess.of(r);
         if (!a.settings().presentation().narrateToSpectators()) return;
+        List<Player> listeners = new ArrayList<>();
         for (Audience.Member m : a.audience().members()) {
             if (m.tier() == SpectatorTier.FAR) continue;
             if (spectatorsOnly && m.tier() == SpectatorTier.OWNER) continue;
-            messages.actionBar(m.player(), key, resolvers);
+            listeners.add(m.player());
         }
+        messages.actionBarAll(listeners, key, resolvers);
     }
 
     private void syncBars(ActiveRitual r, Settings s) {
@@ -577,12 +581,12 @@ public final class RitualDirector implements RitualService.Presentation {
 
         @Override
         public ItemStack offering() {
-            return r.template();
+            return a.templateView();
         }
 
         @Override
         public ItemStack reward() {
-            return r.template();
+            return a.templateView();
         }
 
         @Override

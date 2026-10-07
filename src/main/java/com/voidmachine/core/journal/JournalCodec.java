@@ -82,7 +82,7 @@ public final class JournalCodec {
         }
         byte[] body = new byte[bytes.length - nl - 1];
         System.arraycopy(bytes, nl + 1, body, 0, body.length);
-        String expected = parts[1].toLowerCase(java.util.Locale.ROOT);
+        String expected = parts[1]; // canonical lower-case hex only: any altered byte is rejected
         String actual = crcHex(body);
         if (!expected.equals(actual)) {
             throw new CorruptRecordException("checksum mismatch (expected " + expected + ", got " + actual + ")");
