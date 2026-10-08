@@ -1,414 +1,192 @@
 <div align="center">
 
-# ⬛ VoidMachine
+<img src="VoidMachine%20Logo.png" alt="VoidMachine" width="180">
 
-**A cinematic item-sacrifice ritual machine for serious survival servers.**
+# VoidMachine
 
-*Place your offering. Press the button. The Void decides.*
+**A ritual machine that swallows an offering and decides its fate.**
 
-<p>
-  <a href="https://github.com/MordechaiNeeman/VoidMachine/actions">
-    <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/MordechaiNeeman/VoidMachine/ci.yml?branch=main&style=flat-square">
-  </a>
-  <a href="https://github.com/MordechaiNeeman/VoidMachine/releases">
-    <img alt="Release" src="https://img.shields.io/github/v/release/MordechaiNeeman/VoidMachine?include_prereleases&sort=semver&style=flat-square">
-  </a>
-  <img alt="Paper" src="https://img.shields.io/badge/Paper-1.21.4+-d73b3e?style=flat-square">
-  <img alt="Java" src="https://img.shields.io/badge/Java-21-5382a1?style=flat-square">
-  <img alt="Bedrock" src="https://img.shields.io/badge/Geyser-compatible-4a4a4a?style=flat-square">
-  <a href="LICENSE">
-    <img alt="License" src="https://img.shields.io/badge/license-MIT-303030?style=flat-square">
-  </a>
-</p>
+*Offer a stack. The machine stirs. The Void decides — once, before the show begins.*
+
+![Paper 26.2](https://img.shields.io/badge/Paper-26.2-d73b3e?style=flat-square)
+![Java 25](https://img.shields.io/badge/Java-25-5382a1?style=flat-square)
+![Bedrock via Geyser](https://img.shields.io/badge/Bedrock-Geyser%20%2B%20Floodgate-4a4a4a?style=flat-square)
+![Languages](https://img.shields.io/badge/languages-Hebrew%20%7C%20English-6a0dad?style=flat-square)
+![License MIT](https://img.shields.io/badge/license-MIT-303030?style=flat-square)
 
 </div>
 
 ---
 
-> ⚠️ **VoidMachine is not a casino plugin.**
-> It is a crash-safe item sink with cinematic tension — built to create *permanent moments* in your server's mythology.
+VoidMachine turns a block in your world into an artifact. Players walk up, choose a stack from their
+inventory and offer it. The machine draws the offering in, the light changes, the sound drops away —
+and then the Void gives its verdict: the offering is consumed, partly returned, returned, doubled,
+tripled, or, very rarely, multiplied five times in one of five legendary jackpot reveals.
 
----
+It is an **item sink with theatre**: on the default odds, about 39% of what is offered comes back on
+average. There is no money, no Vault, no economy hook — only items, and a moment people talk about.
 
-## 🌑 What is it?
+## Why VoidMachine is different: nothing is ever lost to a bug
 
-A **physical ritual machine** placed in your Minecraft world. Players walk up to it, place an item, and press a button.
+Most "sacrifice" plugins take the item, play an animation, and hope nothing goes wrong. VoidMachine 2
+treats every offering as a transaction:
 
-The machine locks. A dark ritual chamber fills the screen. The boss bar crawls forward, then freezes at the edge of revelation. Three seconds of silence — then the Void reveals its verdict with a flash of coloured light.
+- **The verdict is rolled exactly once**, before anything is taken, and written to disk with a checksum
+  and `fsync` *before* the item leaves the inventory. The animation never decides anything.
+- **The item is taken and a receipt is written into the player's own data, in the same tick and the
+  same save.** Either both reach the disk or neither does.
+- **A record is only closed when a fresh load of the player's data proves the reward arrived.**
+  A crash at any moment — mid-animation, mid-payout, mid-save — is repaired the next time the player
+  joins: they get exactly what the verdict promised, never twice, never nothing.
+- **Quitting, dying, teleporting or a chunk unloading never cancel or re-roll a ritual.** They only
+  delay delivery. Full inventory? The Void holds the rest and returns it as soon as there is room.
+- **Corrupt or unknown data is never deleted.** It is quarantined and reported to admins.
 
-Win or lose, nobody forgets their first time.
+This is not a promise in a README: the test suite injects a crash at every step of the protocol,
+replays 400 randomized crash sequences against the custody engine, and drives the real plugin through
+seeded chaos — crashes, restarts, quits, full inventories and silently failing saves — checking that
+every player ends with exactly what they were owed. See [Testing](docs/TESTING.md) and
+[Recovery](docs/RECOVERY.md).
 
-Even when idle, the machine breathes — portal smoke drifts from the block, soul-fire flickers in the dark, and an occasional amethyst chime carries through the room. Something dangerous is sleeping here.
+## What players experience
 
----
+1. **Right-click the machine.** A small screen opens with the item in your hand already chosen.
+   Tap any other stack in your own inventory to choose it instead, pick how many (1, a quarter, half,
+   all), and read the exact odds in the book. Items never move into the screen — you cannot lose them
+   by closing it.
+2. **Press the offering button.** The verdict is sealed and recorded. The machine draws the offering
+   in; the respawn-anchor core starts to charge.
+3. **The ritual.** Awaken → capture → stir → ramp → instability → silence. Phase lengths are re-drawn
+   for every ritual *independently of the verdict*, so nobody can read the outcome from timing.
+4. **The reveal.** Boss bar, title, sound and light — very different for a loss and a jackpot.
+   Rewards land in your inventory at this moment.
 
-## ⚡ What your players experience
+| Verdict | Default multiplier | Default chance |
+|---|---|---|
+| Consumed | ×0 | 64% |
+| Tithe | ×0.5 (rounded down) | 10% |
+| Returned | ×1 | 20% |
+| Doubled | ×2 | 4% |
+| Tripled | ×3 | 1.8% |
+| Jackpot | ×5 | 0.2% |
 
-**Right-click the machine.** A cinematic staging screen opens.
+Odds are per machine profile, identical for every player, and never depend on who is watching, how
+much was offered or what happened before. Admins can see them at any time with `/vm admin odds`.
 
-They place their offering — anything. 64 diamonds. A stack of netherite ingots. The machine doesn't care. They can take it back until the moment they confirm.
+### Five legendary jackpots
 
-**They press ⚡ FEED THE VOID.**
+A jackpot plays one of five reveals (weighted, never the same one twice in a row on a machine):
 
-The machine locks. A ritual chamber opens — a dark three-slot screen, nothing to distract. The boss bar begins to fill. Then it freezes. The screen goes silent. Three seconds of dread. Then the chamber flashes its verdict colour and the result drops — bold, unambiguous, impossible to miss on any platform.
+- **Void Ascension** — a beam of white light climbs out of the machine and the offering rises with it.
+- **The Devourer** — darkness, a heartbeat that speeds up, then a roar.
+- **Black Star** — a black star forms above the machine, collapses, and bursts into light.
+- **Heart of the Void** — a slow drum, quickening; the machine has a heart, and it beats for you.
+- **Null Crown** — the rarest: a crown of soul fire settles on the offerer's head while a bell tolls.
 
-Nearby players? They heard the drone through the wall. They're already watching.
+### Fakeouts that never lie
 
-| Outcome | What happens |
-|---------|-------------|
-| **Consumed** | The Void takes everything. Silence. Chamber turns red. |
-| **Returned** | The machine was unmoved. Items come back. Chamber turns grey. |
-| **Doubled** | The Void rewards the bold. ×2. Chamber turns green. |
-| **Tripled** | A surge of impossible power. ×3. Chamber turns gold. Server-wide announcement. |
-| **★ JACKPOT ×5** | The Void awakens. ×5. Triple lightning. Sound heard 64 blocks away. Full-server broadcast. |
+Sometimes (8% of eligible wins by default, rate-limited per player and server-wide) the Void pretends
+a lesser verdict before revealing the real one. A fakeout only ever ends **better** than it pretended,
+and it is pure theatre: the verdict and the payout were fixed before the first cue.
 
-> 📸 *Screenshot: staging interface — one open slot, glowing START button active.*
+### Spectators and crowds
 
-> 📸 *Screenshot: ritual chamber at reveal — gold border, TRIPLED verdict, boss bar held.*
+Players near a running machine see and hear it in tiers — inner circle, nearby, far away. When a crowd
+gathers, effects grow stronger (within a per-tick budget). Big results can be announced to the area or
+the whole server (configurable per tier, with a cooldown).
 
----
+### Idle machines breathe
 
-## 🗡️ Why your server needs this
+A machine with players nearby drifts portal smoke and hums; rarely, it surges ("The Void grows
+restless…"). Purely atmospheric.
 
-**Economy sink that players actually want to use.**
-Every successful ritual pulls items out of circulation. No forced drain, no admin interference — players volunteer their stacks. The machine is a natural, self-sustaining economic drain.
+## Bedrock players and Hebrew
 
-**The stories that define your server.**
-*"I fed 64 netherite ingots to the Void. I got 320 back."*
-*"Lost everything. Still going back."*
-Jackpots broadcast to the whole server. Tripled outcomes announce themselves. Losses are private. The machine creates moments your community will talk about for months.
+- Every screen is a plain chest inventory; every click is cancelled and handled by the plugin, so
+  Geyser clients behave exactly like Java clients.
+- Boss bars, titles, chat, sounds and particles reach Bedrock players. The floating item display is
+  a Java extra (Geyser may not render it); Bedrock players lose nothing important without it.
+- **Hebrew is the default language**, English is bundled, and each player gets their own client
+  language when a translation exists. Bedrock renders all text left-to-right, which reverses Hebrew;
+  VoidMachine pre-orders Hebrew text for Bedrock players only (detected through Floodgate or Geyser,
+  with a UUID heuristic as a fallback).
 
-**High retention for zero work.**
-No economy plugin required. No coins, no currencies, no complex setup. Drop the jar. Register a block. The server drama runs itself.
+## For admins
 
-**Bedrock players included.**
-Full ritual experience — boss bar, inventory GUI, particles — on Java and Bedrock alike. No shift-click, no keyboard shortcuts, no platform divide.
+- **Create a machine:** look at a block and run `/vm admin create <id> [profile]`. The block becomes
+  the core (a respawn anchor by default) and is protected from breaking, explosions, pistons and fire.
+- **Health model:** `HEALTHY`, `DEGRADED`, `RECOVERY_REQUIRED`, `CONFIG_INVALID`, `STORAGE_ERROR`.
+  If the configuration is invalid or the disk cannot be written durably, new offerings are refused —
+  while recovery and payouts keep working.
+- **Loud configuration:** every value is validated on start and on `/vm admin reload`, with the exact
+  path, the expected value and a hint. A failed reload keeps the previous configuration.
+- **Tools:** list, status, pending records, inspect, resolve a running ritual, refund or release a
+  record (with confirmation codes), diagnostics with measured tick cost, health re-check, odds,
+  previews of any verdict or jackpot variant (nothing is taken or recorded), and a JSON-lines audit
+  trail of every step.
+- **Data you can read:** journal records are checksummed JSON files; statistics are `stats.json`;
+  machines are `machines.yml`.
 
----
+See [Commands](docs/COMMANDS.md), [Permissions](docs/PERMISSIONS.md) and
+[Configuration](docs/CONFIGURATION.md).
 
-## ✨ Features
+## Installation
 
-- ⬛ **Ritual chamber GUI** — dark 3-slot screen, minimal panes, bold colour-coded verdict. Works on Java, Bedrock, controller, touch, and mobile without any platform-specific input
-- 🌑 **Idle ambient effects** — portal smoke, soul-fire flicker, and amethyst chime pulse from all idle machines every 30 s. The machine feels alive even when no ritual is running
-- 👁️ **Social visibility** — nearby players hear the ritual build, hear the tension hum, and feel the jackpot triple-lightning from 64 blocks away
-- 🪨 **Physical world machine** — a real block your players visit. Right-click to open.
-- 🔒 **Crash-safe WAL checkpoint** — item written to disk before it leaves the player. Server crash mid-ritual? Items are safe. Always.
-- 🎯 **Pre-rolled outcomes** — the result is locked the moment the ritual starts, before the first animation frame. No reconnect exploit, no timing manipulation.
-- 📢 **Server-wide jackpot broadcasts** — triple lightning, world-space sound at 64 blocks, full-screen title + chat when someone wins ×5
-- ⚙️ **Named outcome profiles** — different risk curves per machine (`default`, `brutal`, `unstable`)
-- ⏱️ **Cooldowns + daily limits** — per-player and global
-- 🛡️ **Explosion, piston, and liquid protection** — machine blocks are indestructible through gameplay
-- 🔐 **Ritual lock** — after pressing START, the player is claimed by the Void. Positional movement blocks; camera stays free. Inventory, drop, and hand-swap blocked too. Releases automatically on all exit paths — no player can be left permanently locked.
-- 🎭 **Rare fakeout reveals** — ~1-in-100 chance for rewarding outcomes to fake a CONSUMED result before snapping to the real reward with a lightning strike. Items always delivered correctly first.
-- ⚡ **Unique jackpot variants** — four distinct visual sequences (Storm, Silent Void, Dragon Resonance, Void Echo) randomly selected per jackpot. Bedrock-safe.
-- 🌀 **Dynamic void events** — random 10–45 minute atmosphere surges on idle machines. Deeper bass, stronger particles, lightning, and *"The Void grows restless…"* nearby action-bar. No gameplay impact.
-- 👥 **Crowd-reactive ambience** — when 3+ players are nearby, idle hum and reveal effects amplify cosmetically. Everyone always sees identical odds.
-- 💀 **Death-safe** — dying during staging injects the item into death drops. No silent loss.
-- 🎮 **Bedrock / controller / touch first** — designed for lowest-precision input. No shift-click, no keyboard shortcuts, no Java-specific habits required.
+**Requirements:** Paper 26.2, Java 25. Optional: Floodgate and/or Geyser-Spigot (only used to detect
+Bedrock players precisely). Folia is not supported.
 
----
+1. Put `VoidMachine-2.0.0.jar` into `plugins/` and start the server.
+2. Look at a block and run `/vm admin create altar`.
+3. Optional: tune `plugins/VoidMachine/config.yml` (odds, limits, announcements) and
+   `rituals.yml` (choreography), then run `/vm admin reload`.
 
-## 📦 Installation
+**Upgrading from 1.x:** just replace the jar. The old configuration, machines, interrupted rituals,
+pending deliveries and lifetime statistics are converted automatically on first start, the originals
+are kept in `plugins/VoidMachine/backup/v1/`. Read [Migration](docs/MIGRATION.md) first.
 
-**Requirements:** [PaperMC](https://papermc.io/) 1.21.4+, Java 21+
-
-1. Drop `VoidMachine-x.x.x.jar` into `plugins/`
-2. Start the server
-3. Place any block where you want the machine, look at it, and run:
-   ```
-   /vm admin create <name> [profile]
-   ```
-   The targeted block becomes a RESPAWN_ANCHOR. That block **is** the machine.
-4. Right-click the RESPAWN_ANCHOR to open the ritual
-
-That's it. Config and messages generate automatically on first start.
-
----
-
-## 💻 Commands
-
-| Command | Permission | Description |
-|---------|-----------|-------------|
-| `/vm admin create <name> [profile]` | `voidmachine.admin` | Register the block you are looking at as a machine |
-| `/vm admin remove <name>` | `voidmachine.admin` | Remove machine and restore the block to AIR |
-| `/vm admin list` | `voidmachine.admin` | List all registered machines with locations and profiles |
-| `/vm reload` | `voidmachine.admin` | Reload `config.yml` and `messages.yml` without restart |
-| `/vm stats` | `voidmachine.stats` | Show lifetime server statistics — sacrifices, outcomes, items consumed, top offering |
-
-> Machines are **indestructible** through normal gameplay. Remove only via `/vm admin remove`.
-
----
-
-## ⚙️ Configuration
-
-### Outcome profiles
-
-Assign different risk curves to different machines:
+## Configuration at a glance
 
 ```yaml
 profiles:
   default:
-    destroyed:  74.0
-    returned:   20.0
-    doubled:     4.0
-    tripled:     1.8
-    jackpot_x5:  0.2
-
-  brutal:
-    destroyed:  90.0
-    returned:    8.0
-    doubled:     1.5
-    tripled:     0.4
-    jackpot_x5:  0.1
-
-  unstable:
-    destroyed:  60.0
-    returned:   22.0
-    doubled:    12.0
-    tripled:     4.5
-    jackpot_x5:  1.5
+    weights: { consumed: 64, tithe: 10, returned: 20, doubled: 4, tripled: 1.8, jackpot: 0.2 }
+    theme: void
+    pacing: standard
+limits:
+  max-reward-amount: 320
+  max-active-rituals: 4
+delivery:
+  overflow: hold   # or: drop (locked to the player, never despawns)
 ```
 
-Weights are normalized automatically. Use any positive numbers.
+Three profiles ship by default — `default`, `brutal` (harsher, slower) and `unstable` (generous,
+faster). Assign one per machine with `/vm admin profile <machine> <profile>`.
 
-```
-/vm admin create VoidAltar brutal
-```
+## For developers
 
-### Key settings
+VoidMachine fires synchronous Bukkit events with an immutable view of the ritual:
+`RitualStartEvent` (cancellable, before anything is rolled or taken), `RitualCommitEvent`,
+`RitualRevealEvent`, `RitualJackpotEvent`, `RitualCompleteEvent` and `RitualRecoveryEvent`.
+Listeners can observe; they cannot change a verdict. See [Architecture](docs/ARCHITECTURE.md).
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `machine.core-material` | `RESPAWN_ANCHOR` | Block type for machine registration |
-| `limits.max-insert-amount` | `256` | Maximum items per ritual |
-| `limits.max-return-amount` | `1024` | Return cap (overflow protection) |
-| `limits.clamp-on-overflow` | `true` | Clamp oversized returns rather than cancelling |
-| `animation.steps` | `28` | Ramp phase step count |
-| `world-animation.step-ticks` | `3` | Ticks per animation step |
-| `world-animation.tension-lock-ticks` | `40` | Tension pause before reveal |
-| `world-animation.max-duration-ticks` | `300` | Watchdog timeout |
-| `fakeout.enabled` | `true` | Enable rare fakeout reveals |
-| `fakeout.chance-1-in` | `100` | Fakeout rarity (1-in-N per rewarding outcome) |
-| `void-events.enabled` | `true` | Enable dynamic void events |
-| `void-events.min-interval-minutes` | `10` | Minimum delay between void events |
-| `void-events.max-interval-minutes` | `45` | Maximum delay between void events |
-| `crowd-awareness.enabled` | `true` | Enable crowd-reactive ambience |
-| `crowd-awareness.min-players` | `3` | Nearby players needed to trigger crowd scaling |
-| `crowd-awareness.radius` | `16.0` | Detection radius in blocks |
-
-### Storage
-
-Default is YAML. For larger servers:
-
-```yaml
-storage:
-  type: mysql
-  mysql:
-    host: localhost
-    port: 3306
-    database: voidmachine
-    username: voidmachine
-    password: changeme
-    use-ssl: false
-    pool-size: 8
-    table-prefix: vm_
-```
-
----
-
-## 🌐 Compatibility
-
-| Platform | Status |
-|----------|--------|
-| Paper 1.21.4+ | ✅ Fully supported |
-| Spigot | ❌ Not supported — Paper APIs required |
-| Java clients | ✅ Full experience |
-| Bedrock via Geyser | ✅ Full experience |
-| Controller input | ✅ No shift-click required |
-| Touch / mobile | ✅ Natural tap-to-place |
-| Folia | ❌ Not planned |
-
-> **Bedrock note:** `ItemDisplay` entities (floating item above the machine during animation) are Java-only. Bedrock clients get the full ritual — boss bar, GUI, particles, reveal — without it.
-
----
-
-## 🔒 Safety & Anti-Dupe
-
-Players must never lose items to a bug.
-
-| Threat | Mitigation |
-|--------|-----------|
-| Crash mid-capture | WAL checkpoint written and `fsync`'d before item leaves inventory. Startup recovery restores. |
-| Crash mid-animation | Outcome pre-rolled and stored at animation start — same result on recovery. |
-| Disconnect mid-animation | Abort transaction, unlock machine, return item. |
-| Death during staging | Item injected into death drops. Never silently lost. |
-| Death during active transaction | Abort + return attempt; checkpoint on disk for admin audit. |
-| Concurrent machine access | `AtomicBoolean.compareAndSet` — one ritual per machine at a time. |
-| Chunk unload during transaction | Force-abort detects unload, returns item. |
-| Machine block destroyed | Immune to player break, explosions, pistons, liquid flow. |
-| Walk-away mid-animation | Ritual lock blocks XYZ movement from START press to animation end. Camera free. |
-| Stack over-consumption | Clamping at START press — excess returned before WAL is written. |
-| Double-roll on reconnect | Outcome rolled once at animation start. No re-roll possible. |
-| Shulker boxes / container NBT | Blocked via `BlacklistService`. |
-| Jackpot overflow | `limits.max-return-amount` caps return. |
-
-**Found a dupe vector?** Email `neeman2009@gmail.com` with `[VoidMachine SECURITY]` in the subject. Do not open a public issue until a fix ships.
-
----
-
-## 🔧 Technical Architecture
-
-Built for production survival servers. Java 21, PaperMC 1.21.4+, Adventure API.
-
-**Write-ahead log (WAL)** — item checkpoint written and `fsync`'d to disk before capture. Startup recovery scans and restores all incomplete checkpoints after a crash.
-
-**Pre-rolled outcomes** — the result is determined at animation start, stored in `AnimationContext`, and never re-rolled. The ritual GUI is presentation only. No outcome manipulation is possible through disconnect, reconnect, or crash.
-
-**Transaction state machine** — `CAPTURED → ANIMATING → DELIVERING → COMPLETED / FAILED`. Each state crash-recoverable.
-
-**AtomicBoolean machine lock** — `compareAndSet(false, true)` prevents concurrent rituals. Unlocks on completion, abort, or chunk unload.
-
-**Animation pipeline** — phased ramp / tension / reveal system with BossBar, `ItemDisplay` entity (Java), particles, and cinematic inventory GUI driven by a configurable step scheduler.
-
-### Package layout
-
-```
-com.voidmachine
-├── animation/          StagingGui, CinematicGui, AnimationPipeline, AnimationWatchdog
-│                       AmbientEffectScheduler, StagingGuiListener, CinematicGuiListener
-│                       JackpotVariant
-├── audit/              AuditLogger
-├── checkpoint/         CheckpointStore, PendingDeliveryQueue, StartupRecovery
-├── command/            VoidMachineCommand
-├── config/             PluginConfig, MessageManager
-├── core/               Outcome, OutcomeRoller, Transaction
-├── db/                 DatabaseManager, GlobalStats, Storage, YamlStorage, SqlStorage
-├── gui/                GuiManager (legacy player-GUI path)
-├── integration/        DiscordHook
-├── interaction/        ItemCaptureService, MachineInteractionListener
-│                       MachineBlockListener, PlayerDeathListener
-├── machine/            MachineBlock, MachineRegistry, MachineDataStore
-├── service/            BlacklistService, CooldownService, ProcessingService, StatsService
-│                       RitualLockService, RitualLockListener
-├── transaction/        TransactionRegistry
-└── util/               Effects, ItemValidator
-```
-
----
-
-## 🏗️ Architecture History
-
-VoidMachine began as a simple GUI gambling plugin. What exists in v0.1.0-alpha is a full architectural rewrite.
-
-**Phase 1 — Legacy GUI**
-Basic inventory GUI, immediate item capture on open, no physical machine, no commit step.
-
-**Phase 2 — Physical machine**
-World-registered blocks. Admin commands. Machine registry with persistent disk storage. Block protection.
-
-**Phase 3 — Transaction safety**
-Write-ahead log. Startup recovery. Checkpoint `fsync`. Machine lock. Death handling. Chunk unload abort.
-
-**Phase 4 — Cinematic ritual**
-`AnimationPipeline` with ramp → tension → reveal phases. Boss bar. `ItemDisplay` entity. Particles. `CinematicGui`. `AnimationWatchdog`.
-
-**Phase 5 — Staging commit step**
-`StagingGui` — 5-row pre-commit interface with explicit START button. `committed` flag hard-locks GUI after press. `captureFromGui()` with crash-safe `onConsumed` callback.
-
-**Phase 6 — Playtest hardening**
-Animation timing reduced to ~5 s. Player death handling. Machine destruction blocked on all event paths. Watchdog abort timeout.
-
-**Phase 7 — Commit-step UX + pre-rolled outcomes**
-Outcome pre-rolled and stored in `AnimationContext` before the first animation frame. Staging GUI: natural inventory pre-commit, clamping at START press, cursor resolution on confirm. `StagingGuiListener` simplified — pane protection only, no shift-click routing.
-
-**Phase 8 — Atmosphere + GUI redesign**
-`AmbientEffectScheduler`: idle portal smoke, soul-fire flicker, ambient hum, 30-second attract flash — all idle machines feel alive. Social visibility: world-space sounds during ramp, tension, and reveal so nearby spectators hear the ritual. Jackpot enhanced to triple lightning + 64-block world sound. `StagingGui` rebuilt as a clean 3-row layout (5-row removed) — single open input slot, glowing START button, column-aligned header → input → confirm. `CinematicGui` rewritten as a ritual chamber: all reel machinery removed, single bold status pane with colour-coded reveal. Designed for Bedrock, controller, touch, and mobile first.
-
-**Phase 9 — Sound identity + lifetime statistics**
-Randomized ambient sound pool with pitch variation — idle machines breathe differently each cycle. Rare bass pulse every ~45 s. Rare metallic creak during attract phase. Commit click at the point of no return. TRIPLED resonance aftershock chime at +4 ticks for distinct audio identity. Jackpot dragon growl layered on double-lightning reveal. `GlobalStats` — atomic, YAML-backed lifetime counter store for total sacrifices, per-outcome counts, items consumed, and top offering. `/vm stats` command with `voidmachine.stats` permission — clean admin-facing output, available to any player the operator chooses.
-
-**Phase 10 — Ritual lock system**
-`RitualLockService` + `RitualLockListener` — players are claimed by the Void from START press to animation end. XYZ movement blocked; camera free. Inventory, item drop, and hand swap also blocked. Portal-particle halo around locked players signals to nearby spectators that the ritual is in progress. Bedrock-safe: position redirect via `setTo()` avoids teleport rubber-banding and Geyser desync. Lock released automatically on every exit path — no player can be left permanently locked.
-
-**Phase 11 — v1.1.0-beta atmosphere**
-Four cosmetic systems layered on top of the existing pipeline — atmosphere only, no probability changes. `JackpotVariant` enum (STORM / SILENT / DRAGON / ECHO) pre-rolled per JACKPOT_X5 transaction for four distinct visual/audio sequences. Rare fakeout reveals (~1-in-100 on DOUBLED / TRIPLED / JACKPOT_X5): fake CONSUMED boss bar + smoke → pause → lightning snap → real result; items delivered before any visual plays. Dynamic void events: self-scheduling random surges every 10–45 min on idle machines — stronger particles, dragon ambient resonance, lightning, action-bar message to nearby players. Crowd awareness: nearby-player count cached per machine every 2 s; idle hum and reveal effects amplify when 3+ players are within 16 blocks.
-
----
-
-## 🗺️ Roadmap
-
-### Near-term
-- [x] **Sound identity** — randomized ambient pool, commit click, TRIPLED aftershock, jackpot dragon growl
-- [x] **Lifetime statistics** — `/vm stats` with per-outcome counts, items consumed, top offering
-- [x] **Fakeout reveals** — rare jk moments before rewarding outcomes
-- [x] **Jackpot variants** — 4 distinct visual sequences (Storm, Silent, Dragon, Echo)
-- [x] **Dynamic void events** — random atmosphere surges on idle machines
-- [x] **Crowd-reactive ambience** — scales cosmetics when 3+ players nearby
-- [ ] **Reward-rate balancing** — per-item-type weight overrides
-
-### Medium-term
-- [ ] **Jackpot spectator mode** — nearby players pulled into shared cinematic view on ×5
-- [ ] **Machine attunement** — persistent machine personality that shifts ambient mood over time
-- [ ] **Analytics dashboard** — per-machine sacrifice statistics
-
-### Long-term
-- [ ] **Mythic moments** — rare behaviours triggered by unusual inputs or consecutive sacrifices
-- [ ] **PlaceholderAPI integration** — expose stats to other plugins
-- [ ] **Jackpot replay** — replay last N jackpots for players who missed them
-
----
-
-## 🔨 Building
+### Building
 
 ```bash
-./gradlew shadowJar
+./gradlew build          # compiles with Java 25, runs the full test suite, builds build/libs/VoidMachine-2.0.0.jar
+./gradlew benchmark      # opt-in performance measurements
 ```
 
-Output: `build/libs/VoidMachine-<version>.jar`
+The wrapper uses Gradle 8.14.3, which itself runs on Java 17–24 (for example 21); the plugin is
+compiled with a Java 25 toolchain, so a JDK 25 must also be installed (Gradle finds it automatically
+in the usual locations, or point to it with `-Porg.gradle.java.installations.paths=/path/to/jdk-25`).
 
-No local server or database required to build.
+## Documentation
 
----
-
-## 🤝 Contributing
-
-1. Open an issue describing the change
-2. Fork → branch → PR against `main`
-3. One behaviour change per PR
-4. Smoke-test against a real PaperMC server
-5. 4-space indent, Javadoc on public classes and non-obvious methods
-
----
-
-## 🐛 Reporting Issues
-
-- **Bugs / feature requests:** [github.com/MordechaiNeeman/VoidMachine/issues](https://github.com/MordechaiNeeman/VoidMachine/issues)
-- **Security / dupes:** `neeman2009@gmail.com` — subject `[VoidMachine SECURITY]`. Do not open public issue until fix ships.
-
-Include: server software + build (`/version`), Java version, VoidMachine version, steps to reproduce, log excerpt.
-
----
-
-## 📄 Credits
-
-| | |
-|-|-|
-| **Author** | Mordechai Neeman · [neeman2009@gmail.com](mailto:neeman2009@gmail.com) · [@MordechaiNeeman](https://github.com/MordechaiNeeman) |
-| **Repository** | [github.com/MordechaiNeeman/VoidMachine](https://github.com/MordechaiNeeman/VoidMachine) |
-| **Issues** | [github.com/MordechaiNeeman/VoidMachine/issues](https://github.com/MordechaiNeeman/VoidMachine/issues) |
-
-Built on: [PaperMC](https://papermc.io/) · [Adventure / MiniMessage](https://docs.advntr.dev/) · [Geyser](https://geysermc.org/) · [HikariCP](https://github.com/brettwooldridge/HikariCP)
-
----
+[Configuration](docs/CONFIGURATION.md) · [Commands](docs/COMMANDS.md) · [Permissions](docs/PERMISSIONS.md) ·
+[Recovery](docs/RECOVERY.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) ·
+[Testing](docs/TESTING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Migration](docs/MIGRATION.md) ·
+[Changelog](CHANGELOG.md)
 
 ## License
 
-MIT © 2026 Mordechai Neeman — see [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-
-*The Void does not negotiate. It only decides.*
-
-</div>
+MIT — see [LICENSE](LICENSE). Created by Mordechai Neeman.

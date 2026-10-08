@@ -5,6 +5,89 @@ Format: [version] — date, then Added / Changed / Fixed / Security sections.
 
 ---
 
+## [2.0.0] — 2026-10-07
+
+A rewrite around one rule: **a player never permanently loses an item because of a bug, and never
+gets one twice.** Requires Paper 26.2 and Java 25. Upgrading from 1.x is automatic — read
+[docs/MIGRATION.md](docs/MIGRATION.md) first.
+
+### Breaking
+
+- Paper 26.2 / Java 25 only (`api-version: '26.2'`). 1.x remains for 1.21.x servers.
+- New data formats: journal records, player ledgers, `stats.json`. V1 data is converted once and
+  backed up to `backup/v1/`; downgrading is not supported.
+- `config.yml` is now `config-version: 2` (converted automatically with identical odds) and strictly
+  validated. Choreography moved to `rituals.yml`; texts to `lang/he.yml` and `lang/en.yml`
+  (`messages.yml` is no longer read).
+- Commands moved under `/vm admin`; the `/void` alias was removed. Permissions changed
+  (see [docs/PERMISSIONS.md](docs/PERMISSIONS.md)).
+- The player cooldown is now enforced (V1 configured but never enforced it).
+- Hebrew is the default language.
+- Removed: DiscordSRV forwarding, MySQL storage and the legacy GUI subsystem with its shaded JDBC
+  drivers, the unused PlaceholderAPI soft dependency.
+
+### Added
+
+- **Transaction safety.** Sealed verdicts; checksummed, fsync'd journal records written before the
+  item is taken; capture and payout recorded in the player's own data in the same save; records closed
+  only on proof from a freshly loaded ledger; quarantine for corrupt records. See
+  [docs/RECOVERY.md](docs/RECOVERY.md).
+- **Held rewards** for full inventories (`delivery.overflow: hold`, automatic retry, `/vm claim`), or
+  owner-locked, never-despawning drops (`overflow: drop`).
+- **Health model** (`HEALTHY`, `DEGRADED`, `RECOVERY_REQUIRED`, `CONFIG_INVALID`, `STORAGE_ERROR`)
+  with fail-closed behaviour for configuration and storage problems.
+- **Offering screen** that never holds items: choose any stack and an amount; exact odds shown.
+- **Cinematic engine** driven by `rituals.yml`: phases with verdict-independent timing, data-driven
+  sound/particle/lightning/display/charge cues, three pacing presets, ten-phase timeline.
+- **Five legendary jackpot reveals** (Void Ascension, The Devourer, Black Star, Heart of the Void,
+  Null Crown), weighted, never repeated twice in a row on a machine.
+- **Fakeouts that never lie**: only ever pretend a worse verdict; rate-limited per player and server.
+- New verdict **Tithe** (half back) in the default profiles; three bundled profiles.
+- **Spectator tiers** and crowd intensity; per-tick effect budget shared fairly between rituals.
+- **Bedrock**: Hebrew pre-ordered for Bedrock clients; Floodgate/Geyser detection without hard
+  dependencies.
+- **Admin tools**: pending/inspect/resolve/refund/release with confirmation codes, health and
+  re-check, diagnostics with measured tick cost, odds, previews of any verdict or jackpot variant,
+  read-only `voidmachine.admin.inspect`, `voidmachine.admin.alerts`.
+- **Audit trail** in JSON lines; **statistics** with leaderboards (`/vm stats`, `/vm top`).
+- **API events**: `RitualStartEvent` (cancellable), `RitualCommitEvent`, `RitualRevealEvent`,
+  `RitualJackpotEvent`, `RitualCompleteEvent`, `RitualRecoveryEvent`.
+- **Test suite** of 124 tests including crash injection at every protocol step, randomized chaos on
+  the real plugin, property tests and opt-in benchmarks. See [docs/TESTING.md](docs/TESTING.md).
+
+### Fixed (defects found in the 1.x audit, see docs/AUDIT-V1.md)
+
+- Item duplication on death, plugin disable or chunk unload right after the reveal (D1, D2).
+- Item loss on death mid-animation without keepInventory (D3).
+- Duplication after a crash when the player's data predates the capture (D4).
+- A stale asynchronous delete could remove a new ritual's checkpoint (D5).
+- Pending deliveries were not durable; a crash could make an item exist nowhere (D6).
+- Items lost from the staging screen on a crash (D7).
+- Quitting before the reveal always refunded — a free re-roll (D8).
+- Machines in worlds that load late were erased from `machines.yml` (D9).
+- Overflow rewards could be picked up by other players (D10).
+- Off-hand interactions could charge and explode the respawn-anchor machine (D11).
+- The watchdog could refund after delivery (D12).
+- Cooldowns, world lists, concurrency limits, display limits and spectator radii were configured but
+  not enforced (D13).
+- Statistics were not saved on shutdown and could be overwritten by interleaved saves (D14). V2 keeps
+  per-player and server totals plus notable feats in `stats.json` (atomic replace); V1's per-item
+  "top items" counts were not carried over (they were already corrupted by the V1 reload bug).
+- Machine names with dots broke `machines.yml` (D15).
+- Machine removal force-loaded chunks and had no confirmation (D16).
+- Hard-coded English text (D17); an anti-spam map that was never cleaned (D18); corrupt checkpoints
+  skipped silently (D20).
+
+### Security
+
+- All clicks in VoidMachine screens are cancelled before other plugins see them; screens are
+  identified by holder, not title.
+- Player-supplied names are never parsed as MiniMessage.
+- Safe YAML loading, size-limited and checksummed records, validated ids for every file name.
+  See [docs/SECURITY.md](docs/SECURITY.md).
+
+---
+
 ## [1.1.0-beta] — 2026-05-23
 
 ### Added
